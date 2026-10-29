@@ -188,12 +188,13 @@ def steps(mocker):
     def git(*args):
         calls.append("git " + " ".join(a for a in args if a != "--"))
 
-    def make(digest_writes=True, **results):
+    def make(digest_writes=True, staged=("review/new.md",), **results):
         mocker.patch("radar.__main__._git", side_effect=git)
         mocker.patch(
             "radar.__main__.subprocess.run",
             side_effect=lambda cmd, **kw: (
-                calls.append("git diff --cached") or subprocess.CompletedProcess(cmd, 1)
+                calls.append("git diff --cached")
+                or subprocess.CompletedProcess(cmd, 0, stdout="\n".join(staged))
             ),
         )
         mocker.patch("radar.__main__.cmd_enrich", side_effect=step("enrich", results.get("enrich")))
@@ -244,8 +245,10 @@ def test_run_local_flags(tmp_path, monkeypatch, steps):
     assert main(["run-local", "--no-push", "--no-email", "--max-items", "5"]) == 0
 
     assert "notify" not in calls and "git push" not in calls
-    assert calls[-2:] == ["git diff --cached", f"git commit -m {calls[-1].split(' -m ')[1]}"]
-    assert calls[-1].endswith(" review")  # only existing output paths are committed
+    assert calls[-3] == "git add review"  # only existing output paths are added
+    assert calls[-2] == "git diff --cached"
+    assert calls[-1].startswith("git commit -m local: ")
+    assert calls[-1].endswith(" review/new.md")  # the staged files, by name
     from radar import __main__ as cli
 
     assert cli.cmd_enrich.call_args.args[0].max_items == 5
@@ -273,3 +276,40 @@ def test_run_local_continues_when_draft_or_email_fails(tmp_path, monkeypatch, st
     calls = steps(draft=1, notify=1)
     assert main(["run-local"]) == 0
     assert "git push" in calls
+
+
+def test_run_local_nothing_staged_skips_commit(tmp_path, monkeypatch, steps, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("review").mkdir()
+    calls = steps(staged=())
+    assert main(["run-local"]) == 0
+    assert not any(c.startswith("git commit") for c in calls)
+    assert "nothing to commit" in capsys.readouterr().out
+
+
+def test_commit_with_empty_drafts_folder_in_a_real_repo(tmp_path, monkeypatch):
+    """Regression: an empty drafts/ folder made `git commit -- drafts` fail."""
+    from radar.__main__ import _commit_and_push
+
+    monkeypatch.chdir(tmp_path)
+    for args in (
+        ["init", "-q"],
+        ["config", "user.email", "t@example.com"],
+        ["config", "user.name", "T"],
+    ):
+        subprocess.run(["git", *args], check=True)
+    Path("drafts").mkdir()
+    Path("review").mkdir()
+    Path("review/2026-10-29.md").write_text("# Review", encoding="utf-8")
+    Path("unrelated.txt").write_text("not mine", encoding="utf-8")
+    subprocess.run(["git", "add", "unrelated.txt"], check=True)  # staged by the user
+
+    _commit_and_push(push=False)
+
+    committed = subprocess.run(
+        ["git", "show", "--name-only", "--format=", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert committed == ["review/2026-10-29.md"]
