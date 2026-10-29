@@ -1,9 +1,11 @@
 import shutil
+import subprocess
 from datetime import date
 from pathlib import Path
 
 import pytest
 
+from radar import draft
 from radar.__main__ import COMMANDS, HANDLERS, main
 from radar.enriched import append_scores, read_scores, read_state
 from radar.models import Enrichment
@@ -27,10 +29,8 @@ def test_missing_command_is_an_error():
     assert exc.value.code == 2
 
 
-@pytest.mark.parametrize("command", [c for c in COMMANDS if c not in HANDLERS])
-def test_stub_commands_report_not_implemented(command, capsys):
-    assert main([command]) == 1
-    assert "not implemented yet" in capsys.readouterr().err
+def test_every_command_has_a_handler():
+    assert set(HANDLERS) == set(COMMANDS)
 
 
 def test_enrich_aborts_when_api_key_is_set(monkeypatch, capsys):
@@ -127,3 +127,149 @@ def test_digest_uses_feedback_and_writes_state(tmp_path, monkeypatch, mocker, ca
     state = read_state(Path("data/enriched/state.json"))
     assert state["last_digest"] == digest.as_posix()
     assert "last_processed_at" in state
+
+
+# --- draft --------------------------------------------------------------------------------
+
+
+def _write_marked_review(text_marks: dict[str, str]) -> None:
+    blocks = "".join(
+        f"### {n}. T — score 0.5\n<!-- id: {i} -->\n"
+        f"- [{'x' if m == 'keep' else ' '}] keep\n- [ ] skip\n"
+        f"- [{'x' if m == 'write' else ' '}] write\n\n"
+        for n, (i, m) in enumerate(text_marks.items(), 1)
+    )
+    Path("review").mkdir(exist_ok=True)
+    Path("review/2026-10-28.md").write_text(f"# Review — 2026-10-28 (2 items)\n\n{blocks}", "utf-8")
+
+
+def test_draft_never_drafts_an_item_twice(tmp_path, monkeypatch, mocker, capsys):
+    monkeypatch.chdir(tmp_path)
+    append_items(Path("data/raw"), date(2026, 10, 28), [_item("a1"), _item("a2"), _item("a3")])
+    append_scores(
+        [Enrichment(id=i, scored_at=NOW, title_en=i) for i in ("a1", "a2", "a3")],
+        Path("data/enriched/scores.jsonl"),
+    )
+    _write_marked_review({"a1": "write", "a2": "keep"})
+    roundup = mocker.patch(
+        "radar.draft.make_roundup",
+        side_effect=lambda day, pairs: (
+            draft.record_drafted({i.id for i, _ in pairs}) or Path("drafts/x.md")
+        ),
+    )
+
+    assert main(["draft"]) == 0
+    assert main(["draft"]) == 0  # a1 already drafted
+    _write_marked_review({"a1": "write", "a2": "keep", "a3": "write"})
+    assert main(["draft"]) == 0
+
+    drafted = [[item.id for item, _ in call.args[1]] for call in roundup.call_args_list]
+    assert drafted == [["a1"], ["a3"]]
+    assert "no new items marked 'write'" in capsys.readouterr().out
+
+
+# --- run-local ----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def steps(mocker):
+    """Mock every step of run-local and record the order they run in."""
+    calls: list[str] = []
+
+    def step(name, result=None, effect=None):
+        def run(*args, **kwargs):
+            calls.append(name)
+            if effect:
+                effect()
+            return result or 0
+
+        return run
+
+    def git(*args):
+        calls.append("git " + " ".join(a for a in args if a != "--"))
+
+    def make(digest_writes=True, **results):
+        mocker.patch("radar.__main__._git", side_effect=git)
+        mocker.patch(
+            "radar.__main__.subprocess.run",
+            side_effect=lambda cmd, **kw: (
+                calls.append("git diff --cached") or subprocess.CompletedProcess(cmd, 1)
+            ),
+        )
+        mocker.patch("radar.__main__.cmd_enrich", side_effect=step("enrich", results.get("enrich")))
+        state = {"last_digest": None}
+        mocker.patch("radar.enriched.read_state", side_effect=lambda *a, **k: dict(state))
+        mocker.patch(
+            "radar.__main__.cmd_digest",
+            side_effect=step(
+                "digest",
+                results.get("digest"),
+                (lambda: state.update(last_digest="review/new.md")) if digest_writes else None,
+            ),
+        )
+        mocker.patch("radar.__main__.cmd_draft", side_effect=step("draft", results.get("draft")))
+        mocker.patch("radar.__main__.cmd_notify", side_effect=step("notify", results.get("notify")))
+        return calls
+
+    return make
+
+
+def test_run_local_step_order(tmp_path, monkeypatch, steps):
+    monkeypatch.chdir(tmp_path)
+    for d in ("data/enriched", "review", "drafts"):
+        Path(d).mkdir(parents=True)
+    calls = steps()
+
+    assert main(["run-local"]) == 0
+
+    assert [c.split(" -m ")[0] for c in calls] == [
+        "git pull --rebase --autostash",
+        "enrich",
+        "digest",
+        "draft",
+        "notify",
+        "git add data/enriched review drafts",
+        "git diff --cached",
+        "git commit",
+        "git pull --rebase --autostash",
+        "git push",
+    ]
+
+
+def test_run_local_flags(tmp_path, monkeypatch, steps):
+    monkeypatch.chdir(tmp_path)
+    Path("review").mkdir()
+    calls = steps()
+
+    assert main(["run-local", "--no-push", "--no-email", "--max-items", "5"]) == 0
+
+    assert "notify" not in calls and "git push" not in calls
+    assert calls[-2:] == ["git diff --cached", f"git commit -m {calls[-1].split(' -m ')[1]}"]
+    assert calls[-1].endswith(" review")  # only existing output paths are committed
+    from radar import __main__ as cli
+
+    assert cli.cmd_enrich.call_args.args[0].max_items == 5
+
+
+def test_run_local_no_email_without_new_digest(tmp_path, monkeypatch, steps):
+    monkeypatch.chdir(tmp_path)
+    calls = steps(digest_writes=False)
+    assert main(["run-local"]) == 0
+    assert "notify" not in calls
+
+
+@pytest.mark.parametrize("failing", ["enrich", "digest"])
+def test_run_local_stops_when_a_core_step_fails(tmp_path, monkeypatch, steps, failing):
+    monkeypatch.chdir(tmp_path)
+    calls = steps(**{failing: 1})
+    assert main(["run-local"]) == 1
+    assert calls[-1] == failing
+    assert not any(c.startswith("git commit") for c in calls)
+
+
+def test_run_local_continues_when_draft_or_email_fails(tmp_path, monkeypatch, steps):
+    monkeypatch.chdir(tmp_path)
+    Path("review").mkdir()
+    calls = steps(draft=1, notify=1)
+    assert main(["run-local"]) == 0
+    assert "git push" in calls

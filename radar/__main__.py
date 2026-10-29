@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -188,11 +189,89 @@ def cmd_notify(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_draft(args: argparse.Namespace) -> int:
+    """Write one roundup draft from items marked `write` that have no draft yet."""
+    from radar import draft, enriched, llm
+    from radar.feedback import parse_all
+    from radar.store import Store
+
+    marked = {i for i, label in parse_all().items() if label == "write"}
+    wanted = marked - draft.read_drafted()
+    if not wanted:
+        print("draft: no new items marked 'write'")
+        return 0
+    scores = enriched.read_scores()
+    store = Store()
+    store.load_raw(RAW_DIR)
+    pairs = [(i, scores[i.id]) for i in store.items() if i.id in wanted and i.id in scores]
+    store.close()
+    try:
+        path = draft.make_roundup(datetime.now(UTC).date(), pairs)
+    except (llm.LLMSetupError, llm.LLMCallError) as exc:
+        print(f"draft: {exc}", file=sys.stderr)
+        return 1
+    print(f"draft: {len(pairs)} items -> {path.as_posix()}")
+    return 0
+
+
+LOCAL_OUTPUTS = ("data/enriched", "review", "drafts")  # the only paths the local step commits
+
+
+def _git(*args: str) -> None:
+    """Run git with an argument list (works the same on Windows, macOS and Linux)."""
+    subprocess.run(["git", *args], check=True)
+
+
+def _commit_and_push(push: bool) -> None:
+    """Commit data/enriched/, review/ and drafts/ (only those paths) and optionally push."""
+    paths = [p for p in LOCAL_OUTPUTS if Path(p).exists()]
+    _git("add", "--", *paths)
+    staged = subprocess.run(["git", "diff", "--cached", "--quiet", "--", *paths])
+    if staged.returncode == 0:
+        print("run-local: nothing to commit")
+        return
+    _git("commit", "-m", f"local: {datetime.now(UTC):%Y-%m-%dT%H:%MZ}", "--", *paths)
+    if push:
+        _git("pull", "--rebase", "--autostash")
+        _git("push")
+
+
+def cmd_run_local(args: argparse.Namespace) -> int:
+    """pull -> enrich -> digest -> draft -> notify -> commit & push."""
+    from radar import enriched
+
+    try:
+        _git("pull", "--rebase", "--autostash")
+    except subprocess.CalledProcessError as exc:
+        print(f"run-local: git pull failed ({exc}); stopping", file=sys.stderr)
+        return 1
+    if cmd_enrich(argparse.Namespace(max_items=args.max_items)) != 0:
+        return 1
+    digest_before = enriched.read_state().get("last_digest")
+    if cmd_digest(argparse.Namespace()) != 0:
+        return 1
+    new_digest = enriched.read_state().get("last_digest") != digest_before
+    # Drafts before the email, so the email can report how many were created.
+    if cmd_draft(argparse.Namespace()) != 0:
+        print("run-local: drafts failed; continuing", file=sys.stderr)
+    if new_digest and not args.no_email:
+        if cmd_notify(argparse.Namespace(dry_run=False, backlog=False)) != 0:
+            print("run-local: email not sent; continuing", file=sys.stderr)
+    try:
+        _commit_and_push(push=not args.no_push)
+    except subprocess.CalledProcessError as exc:
+        print(f"run-local: git failed ({exc})", file=sys.stderr)
+        return 1
+    return 0
+
+
 HANDLERS = {
     "collect": cmd_collect,
     "enrich": cmd_enrich,
     "digest": cmd_digest,
     "notify": cmd_notify,
+    "draft": cmd_draft,
+    "run-local": cmd_run_local,
 }
 
 
@@ -215,6 +294,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="remind when BACKLOG_ALERT+ collected items wait for the local step",
     )
+    run_local = commands["run-local"]
+    run_local.add_argument("--no-push", action="store_true", help="commit but do not push")
+    run_local.add_argument("--no-email", action="store_true", help="do not send the email")
+    run_local.add_argument(
+        "--max-items", type=int, help="score at most N items (default: LLM_MAX_ITEMS)"
+    )
     return parser
 
 
@@ -223,11 +308,7 @@ def main(argv: list[str] | None = None) -> int:
     # Source names may contain non-ASCII characters; don't crash on a cp1252 Windows console.
     sys.stdout.reconfigure(errors="replace")
     args = build_parser().parse_args(argv)
-    handler = HANDLERS.get(args.command)
-    if handler is None:
-        print(f"{args.command}: not implemented yet", file=sys.stderr)
-        return 1
-    return handler(args)
+    return HANDLERS[args.command](args)
 
 
 if __name__ == "__main__":
