@@ -226,11 +226,19 @@ def _commit_and_push(push: bool) -> None:
     """Commit data/enriched/, review/ and drafts/ (only those paths) and optionally push."""
     paths = [p for p in LOCAL_OUTPUTS if Path(p).exists()]
     _git("add", "--", *paths)
-    staged = subprocess.run(["git", "diff", "--cached", "--quiet", "--", *paths])
-    if staged.returncode == 0:
+    # Commit the staged files by name: a pathspec like an empty drafts/ folder that git
+    # knows no files in would make `git commit -- <paths>` fail.
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--", *paths],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout.splitlines()
+    if not staged:
         print("run-local: nothing to commit")
         return
-    _git("commit", "-m", f"local: {datetime.now(UTC):%Y-%m-%dT%H:%MZ}", "--", *paths)
+    _git("commit", "-m", f"local: {datetime.now(UTC):%Y-%m-%dT%H:%MZ}", "--", *staged)
     if push:
         _git("pull", "--rebase", "--autostash")
         _git("push")
