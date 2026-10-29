@@ -28,3 +28,17 @@ def make_source(**overrides) -> Source:
 def feed_bytes():
     """Read a feed fixture by file name."""
     return lambda name: (FIXTURES / "feeds" / name).read_bytes()
+
+
+class FakeEmbedder:
+    """Deterministic embedder: one dimension per word in VOCAB, counted in the text."""
+
+    VOCAB = ["test", "ai", "garden", "cook"]
+    model_name = "fake"
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        self.calls.append(texts)
+        return [[float(t.lower().count(w)) for w in self.VOCAB] for t in texts]

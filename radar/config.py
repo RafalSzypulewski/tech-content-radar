@@ -1,9 +1,12 @@
-"""Load sources.yaml and topics.yaml."""
+"""Load sources.yaml, topics.yaml and settings (overridable via .env)."""
 
+import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import BaseModel
 
 SourceKind = Literal["rss", "hackernews", "devto"]
@@ -52,3 +55,24 @@ def load_sources(path: Path) -> list[Source]:
 def load_topics(path: Path) -> Topics:
     """Read topics.yaml."""
     return Topics(**yaml.safe_load(path.read_text(encoding="utf-8")))
+
+
+@dataclass(frozen=True)
+class Settings:
+    """Tunable numbers; each can be overridden by an environment variable of the same name."""
+
+    LLM_MAX_ITEMS: int = 60
+    FRESHNESS_HALF_LIFE_DAYS: float = 7.0
+
+
+def load_settings(env_file: Path | None = Path(".env")) -> Settings:
+    """Defaults, overridden by `env_file` (if it exists) and the environment."""
+    if env_file is not None:
+        load_dotenv(env_file)
+    defaults = Settings()
+    overrides = {
+        name: type(getattr(defaults, name))(os.environ[name])
+        for name in Settings.__dataclass_fields__
+        if name in os.environ
+    }
+    return Settings(**overrides)
