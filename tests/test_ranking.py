@@ -6,6 +6,7 @@ from radar.models import Enrichment
 from radar.ranking import (
     cluster,
     engagement_norm,
+    feedback_boost,
     final_rank,
     final_score,
     freshness,
@@ -145,3 +146,30 @@ def test_final_rank_uses_trust_and_engagement():
     by_id = {e.item.id: e.score for e in entries}
     # trust 1.0 vs default 0.5 -> +0.25*0.3*0.5; engagement ~1.0 -> +0.25*0.2*1.0
     assert by_id["a"] - by_id["b"] == pytest.approx(0.25 * 0.3 * 0.5 - 0.25 * 0.2 * 1.0, abs=1e-3)
+
+
+# --- feedback boost ----------------------------------------------------------------------
+
+
+def test_feedback_boost():
+    assert feedback_boost([1.0, 0.0], [], []) == 0.0
+    assert feedback_boost([1.0, 0.0], [[1.0, 0.0]], []) == pytest.approx(0.1)
+    assert feedback_boost([1.0, 0.0], [], [[1.0, 0.0]]) == pytest.approx(-0.1)
+    assert feedback_boost([1.0, 0.0], [[0.0, 1.0]], [[-1.0, 0.0]]) == pytest.approx(0.0)
+    assert feedback_boost([1.0, 0.0], [[1.0, 0.0]], [[0.6, 0.8]]) == pytest.approx(0.1 - 0.06)
+
+
+def test_boost_changes_ranking_as_expected():
+    items = [_aged("ai", 1), _aged("testing", 1)]
+    scores = {"ai": _scored("ai", 8), "testing": _scored("testing", 7)}
+    vectors = {"ai": [1.0, 0.0], "testing": [0.0, 1.0]}
+
+    def order(liked, skipped):
+        entries = final_rank(items, scores, vectors, {}, NOW, 7, 0.85, liked, skipped)
+        return [e.item.id for e in entries]
+
+    assert order([], []) == ["ai", "testing"]  # 0.045 ahead on relevance
+    # kept a testing post, skipped an AI post -> testing gets +0.1, ai -0.1
+    assert order([[0.0, 1.0]], [[1.0, 0.0]]) == ["testing", "ai"]
+    # liking something unrelated to both changes nothing
+    assert order([[-1.0, -1.0]], []) == ["ai", "testing"]

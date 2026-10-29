@@ -108,6 +108,18 @@ def cluster(
     return clusters
 
 
+def feedback_boost(
+    vector: list[float],
+    liked_vectors: list[list[float]],
+    skipped_vectors: list[list[float]],
+) -> float:
+    """+0.1·max_sim(kept/written) − 0.1·max_sim(skipped); 0 without feedback.
+
+    Similarities are clamped to 0..1 so dissimilar feedback never flips the sign.
+    """
+    return 0.1 * relevance(vector, liked_vectors) - 0.1 * relevance(vector, skipped_vectors)
+
+
 def final_rank(
     items: list[RawItem],
     scores: dict[str, Enrichment],
@@ -116,11 +128,14 @@ def final_rank(
     now: datetime,
     half_life_days: float,
     cluster_threshold: float,
+    liked_vectors: list[list[float]] = (),
+    skipped_vectors: list[list[float]] = (),
 ) -> list[Final]:
     """Score items, cluster near-duplicates and return the cluster leaders, best first.
 
     The best item of a cluster gets novelty 1.0, the others 0.3 and appear only as
-    `related` under it.
+    `related` under it. `liked_vectors` / `skipped_vectors` are the embeddings of items
+    marked keep or write / skip in earlier digests.
     """
     base: dict[str, float] = {}
     for item in items:
@@ -131,7 +146,8 @@ def final_rank(
             engagement_norm(item.engagement),
         )
         fresh = freshness(item.published_at, now, half_life_days)
-        base[item.id] = final_score(e.relevance, mix, fresh, novelty=0.0)
+        boost = feedback_boost(vectors[item.id], list(liked_vectors), list(skipped_vectors))
+        base[item.id] = final_score(e.relevance, mix, fresh, novelty=0.0, boost=boost)
 
     by_id = {item.id: item for item in items}
     ordered = sorted(base, key=lambda i: (-base[i], i))
