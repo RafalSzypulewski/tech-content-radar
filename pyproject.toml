@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "radar"
+version = "0.1.0"
+description = "Collects, ranks and digests tech content about testing, test automation and AI."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic",
+    "pyyaml",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+collect = [
+    "httpx",
+    "feedparser",
+    "trafilatura",
+    "lingua-language-detector",
+]
+local = [
+    "sentence-transformers",
+]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "respx",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+include = ["radar*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
