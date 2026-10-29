@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Taming flaky tests in CI</title></head>
+<body>
+  <nav><a href="/">Home</a> <a href="/about">About</a></nav>
+  <article>
+    <h1>Taming flaky tests in CI</h1>
+    <p>Flaky tests erode trust in the suite. When a test fails one run and passes the next, engineers
+    learn to ignore red builds, and real regressions slip through unnoticed.</p>
+    <p>We started by measuring flakiness: every test result from the last thirty days went into a
+    small database, and any test that both passed and failed on the same commit was marked as flaky.
+    That gave us a ranked list of the worst offenders instead of a vague feeling.</p>
+    <p>Next we quarantined the flaky tests. They still run on every build, but their failures no longer
+    block merges. Each quarantined test gets an owner and a ticket, and it leaves quarantine only after
+    a week of green runs.</p>
+    <p>Most of the root causes were boring: shared state between tests, timing assumptions, and tests
+    that depended on the order in which they ran. Fixing them took weeks, not months.</p>
+  </article>
+  <footer>Copyright Example Blog</footer>
+</body>
+</html>
