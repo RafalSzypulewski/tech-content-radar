@@ -23,3 +23,20 @@ class RawItem(BaseModel):
     text: str = ""
     engagement: dict[str, int] = {}
     matched_keywords: list[str] = []
+
+
+class Enrichment(BaseModel):
+    """LLM score + summary for one item: a line in data/enriched/scores.jsonl.
+
+    When scoring failed, `error` is set and the other fields are empty/zero.
+    """
+
+    id: str
+    title_en: str = ""
+    summary_en: str = ""
+    relevance: int = 0
+    quality: int = 0
+    reason: str = ""
+    tags: list[str] = []
+    scored_at: datetime
+    error: str | None = None
