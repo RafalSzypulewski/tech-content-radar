@@ -1,0 +1,24 @@
+[
+  {
+    "id": 101,
+    "title": "Contract testing with Pact in 10 minutes",
+    "url": "https://dev.to/someone/contract-testing-with-pact-1abc",
+    "description": "A hands-on intro to consumer-driven contract testing.",
+    "published_at": "2026-10-24T18:12:54Z",
+    "public_reactions_count": 127,
+    "comments_count": 49,
+    "tag_list": ["testing", "api"],
+    "user": {"name": "Some One"}
+  },
+  {
+    "id": 102,
+    "title": "Testy jednostkowe w Pythonie krok po kroku",
+    "url": "https://dev.to/ktos/testy-jednostkowe-w-pythonie-2def",
+    "description": "Jak pisać czytelne testy jednostkowe w pytest i dlaczego warto zacząć od małych przypadków.",
+    "published_at": "2026-10-22T08:00:00Z",
+    "public_reactions_count": 15,
+    "comments_count": 2,
+    "tag_list": ["testing", "python"],
+    "user": {"name": "Ktoś"}
+  }
+]

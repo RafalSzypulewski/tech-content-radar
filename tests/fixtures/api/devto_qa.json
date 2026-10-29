@@ -1,0 +1,24 @@
+[
+  {
+    "id": 101,
+    "title": "Contract testing with Pact in 10 minutes",
+    "url": "https://dev.to/someone/contract-testing-with-pact-1abc",
+    "description": "A hands-on intro to consumer-driven contract testing.",
+    "published_at": "2026-10-24T18:12:54Z",
+    "public_reactions_count": 128,
+    "comments_count": 49,
+    "tag_list": ["testing", "qa"],
+    "user": {"name": "Some One"}
+  },
+  {
+    "id": 103,
+    "title": "A QA checklist for releases",
+    "url": "https://dev.to/qa-person/a-qa-checklist-3ghi",
+    "description": "",
+    "published_at": "2026-10-20T10:00:00Z",
+    "public_reactions_count": 0,
+    "comments_count": 0,
+    "tag_list": ["qa"],
+    "user": null
+  }
+]

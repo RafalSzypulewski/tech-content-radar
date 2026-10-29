@@ -30,7 +30,7 @@ def test_match_keywords(text, expected):
     assert match_keywords(text, KEYWORDS) == expected
 
 
-def _item(age_days: float, matched: list[str]) -> RawItem:
+def _item(age_days: float, matched: list[str], points: int | None = None) -> RawItem:
     return RawItem(
         id="x",
         url="https://example.com/x",
@@ -43,6 +43,7 @@ def _item(age_days: float, matched: list[str]) -> RawItem:
         published_at=NOW - timedelta(days=age_days),
         fetched_at=NOW,
         matched_keywords=matched,
+        engagement={} if points is None else {"points": points},
     )
 
 
@@ -62,3 +63,14 @@ def test_always_include_skips_keyword_filter_but_not_age():
     source = make_source(always_include=True)
     assert keep(_item(1, []), source, NOW)
     assert not keep(_item(30, []), source, NOW)
+
+
+def test_hackernews_requires_min_points():
+    source = make_source(kind="hackernews", type="community", url=None, min_points=30)
+    assert keep(_item(1, ["testing"], points=30), source, NOW)
+    assert not keep(_item(1, ["testing"], points=29), source, NOW)
+    assert not keep(_item(1, ["testing"]), source, NOW)
+
+
+def test_min_points_ignored_for_other_kinds():
+    assert keep(_item(1, ["testing"], points=0), make_source(min_points=30), NOW)

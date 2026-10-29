@@ -23,7 +23,12 @@ def is_fresh(item: RawItem, max_age_days: int, now: datetime) -> bool:
 
 
 def keep(item: RawItem, source: Source, now: datetime) -> bool:
-    """Apply the pre-filter: fresh AND (always_include source OR a keyword matched)."""
+    """Apply the pre-filter: fresh AND (always_include source OR a keyword matched).
+
+    Hacker News items must also have at least `min_points`.
+    """
+    if source.kind == "hackernews" and item.engagement.get("points", 0) < source.min_points:
+        return False
     return is_fresh(item, source.max_age_days, now) and (
         source.always_include or bool(item.matched_keywords)
     )

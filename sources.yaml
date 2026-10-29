@@ -43,6 +43,13 @@ sources:
     kind: devto
     type: community
     tags: ["testing", "automation", "qa", "ai"]
+  - id: quality-remarks
+    name: Quality Remarks
+    kind: rss
+    type: blog
+    url: https://qualityremarks.com/feed/
+    lang: en
+    trust: 0.8
   # YouTube channel: kind: rss, type: video,
   #   url: https://www.youtube.com/feeds/videos.xml?channel_id=<CHANNEL_ID>
   # Podcast: kind: rss, type: podcast, url: <podcast RSS feed>

@@ -7,12 +7,15 @@ from pathlib import Path
 import httpx
 
 from radar import rawstore
-from radar.collectors import rss
+from radar.collectors import devto, hackernews, rss
 from radar.config import Source
+from radar.extract import extract_text, needs_extraction
+from radar.language import detect_lang
+from radar.models import RawItem
 from radar.prefilter import keep, match_keywords
 
 USER_AGENT = "tech-content-radar/0.1 (+https://github.com/RafalSzypulewski/tech-content-radar)"
-COLLECTORS = {"rss": rss.collect}
+COLLECTORS = {"rss": rss.collect, "hackernews": hackernews.collect, "devto": devto.collect}
 
 
 @dataclass
@@ -60,10 +63,25 @@ def collect_all(
             )
             if keep(item, source, now):
                 stat.kept += 1
-                kept_items.append(item)
+                kept_items.append(add_text_and_lang(client, item, source))
     if kept_items:
         rawstore.append_items(raw_dir, now.date(), kept_items)
     return stats
+
+
+def add_text_and_lang(client: httpx.Client, item: RawItem, source: Source) -> RawItem:
+    """Fill in article text for short blog items, then detect the language.
+
+    Runs only on kept items, so pages are not downloaded again for items the
+    pre-filter drops on every run.
+    """
+    text = item.text
+    if needs_extraction(item.type, text):
+        extracted = extract_text(client, item.url)
+        if extracted and len(extracted) > len(text):
+            text = extracted
+    lang = detect_lang(f"{item.title}\n{text}", fallback=source.lang)
+    return item.model_copy(update={"text": text, "lang": lang})
 
 
 def make_client() -> httpx.Client:
