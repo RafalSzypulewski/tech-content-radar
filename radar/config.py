@@ -63,6 +63,8 @@ class Settings:
 
     LLM_MAX_ITEMS: int = 60
     LLM_BATCH_SIZE: int = 20
+    DIGEST_SIZE: int = 20
+    CLUSTER_THRESHOLD: float = 0.85
     FRESHNESS_HALF_LIFE_DAYS: float = 7.0
 
 
