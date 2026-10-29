@@ -5,10 +5,10 @@ from pathlib import Path
 import pytest
 
 from radar.__main__ import COMMANDS, HANDLERS, main
-from radar.enriched import read_scores
+from radar.enriched import append_scores, read_scores
 from radar.models import Enrichment
 from radar.rawstore import append_items
-from tests.conftest import FakeEmbedder
+from tests.conftest import NOW, FakeEmbedder
 from tests.test_store import _item
 
 
@@ -63,3 +63,32 @@ def test_enrich_scores_top_unscored_items(tmp_path, monkeypatch, mocker):
     assert len(first) == 2 and score.call_args_list[0].args[2] == 20
     assert {i.id for i in second} == {"a", "b", "c"} - {i.id for i in first}
     assert set(read_scores(Path("data/enriched/scores.jsonl"))) == {"a", "b", "c"}
+
+
+def test_digest_does_not_repeat_items(tmp_path, monkeypatch, mocker, capsys):
+    root = Path(__file__).resolve().parent.parent
+    shutil.copy(root / "sources.yaml", tmp_path / "sources.yaml")
+    monkeypatch.chdir(tmp_path)
+    for name in ("DIGEST_SIZE", "CLUSTER_THRESHOLD", "FRESHNESS_HALF_LIFE_DAYS"):
+        monkeypatch.delenv(name, raising=False)
+    mocker.patch("radar.embeddings.SentenceTransformerEmbedder", FakeEmbedder)
+    raw = Path("data/raw")
+    append_items(raw, date(2026, 10, 29), [_item("a", "test"), _item("b", "garden")])
+    scores = Path("data/enriched/scores.jsonl")
+    append_scores([Enrichment(id=i, scored_at=NOW, relevance=5, quality=5) for i in "ab"], scores)
+
+    assert main(["digest"]) == 0
+    first = Path("review").glob("*.md")
+    [first] = list(first)
+    assert "(2 items)" in first.read_text(encoding="utf-8")
+
+    assert main(["digest"]) == 0
+    assert "nothing written" in capsys.readouterr().out
+    assert len(list(Path("review").glob("*.md"))) == 1
+
+    append_items(raw, date(2026, 10, 29), [_item("c", "ai")])
+    append_scores([Enrichment(id="c", scored_at=NOW, relevance=5, quality=5)], scores)
+    assert main(["digest"]) == 0
+    [second] = [p for p in Path("review").glob("*.md") if p != first]
+    text = second.read_text(encoding="utf-8")
+    assert "(1 items)" in text and "<!-- id: c -->" in text

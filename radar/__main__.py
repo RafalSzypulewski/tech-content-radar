@@ -1,6 +1,7 @@
 """CLI entry point: ``python -m radar <command>``."""
 
 import argparse
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -69,7 +70,76 @@ def cmd_enrich(args: argparse.Namespace) -> int:
     return 0
 
 
-HANDLERS = {"collect": cmd_collect, "enrich": cmd_enrich}
+def cmd_digest(args: argparse.Namespace) -> int:
+    """Rank scored items not shown before and write review/YYYY-MM-DD.md."""
+    from radar import digest, enriched
+    from radar.embeddings import SentenceTransformerEmbedder, embed_items
+    from radar.ranking import final_rank
+    from radar.store import Store
+
+    settings = load_settings()
+    trust = {s.id: s.trust for s in load_sources(Path("sources.yaml"))}
+    now = datetime.now(UTC)
+    scores = enriched.read_scores()
+    done = enriched.scored_ids(scores)
+    shown = digest.shown_ids()
+
+    store = Store()
+    store.load_raw(RAW_DIR)
+    candidates = [i for i in store.items() if i.id in done and i.id not in shown]
+    if not candidates:
+        store.close()
+        print("digest: no new scored items; nothing written")
+        return 0
+    vectors = embed_items(store, SentenceTransformerEmbedder(), candidates)
+    store.close()
+
+    entries = final_rank(
+        candidates,
+        scores,
+        vectors,
+        trust,
+        now,
+        settings.FRESHNESS_HALF_LIFE_DAYS,
+        settings.CLUSTER_THRESHOLD,
+    )[: settings.DIGEST_SIZE]
+    path = digest.write_digest(now.date(), digest.render_digest(now.date(), entries))
+    print(f"digest: {len(entries)} items -> {path.as_posix()}")
+    return 0
+
+
+def cmd_notify(args: argparse.Namespace) -> int:
+    """Email a summary of the latest digest (or print it with --dry-run)."""
+    from radar import notify
+
+    load_settings()  # loads .env into the environment
+    try:
+        summary = notify.read_digest(notify.latest_digest(Path("review")))
+        drafts = notify.count_drafts(summary.day)
+        if args.dry_run:
+            sender = os.environ.get("SMTP_USER") or "SMTP_USER not set"
+            to = os.environ.get("NOTIFY_TO") or "NOTIFY_TO not set"
+            msg = notify.build_email(summary, drafts, sender, to)
+            # Not msg.as_string(): non-ASCII bodies would print as base64.
+            print(f"Subject: {msg['Subject']}\nFrom: {sender}\nTo: {to}\n\n{msg.get_content()}")
+            return 0
+        config = notify.smtp_config()
+        to = config["NOTIFY_TO"]
+        msg = notify.build_email(summary, drafts, config["SMTP_USER"], to)
+        notify.send(msg, config)
+    except (notify.NotifyError, OSError) as exc:  # smtplib errors are OSError subclasses
+        print(f"notify: {exc}", file=sys.stderr)
+        return 1
+    print(f"notify: sent '{msg['Subject']}' to {to}")
+    return 0
+
+
+HANDLERS = {
+    "collect": cmd_collect,
+    "enrich": cmd_enrich,
+    "digest": cmd_digest,
+    "notify": cmd_notify,
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -82,6 +152,9 @@ def build_parser() -> argparse.ArgumentParser:
     }
     commands["enrich"].add_argument(
         "--max-items", type=int, help="score at most N items (default: LLM_MAX_ITEMS)"
+    )
+    commands["notify"].add_argument(
+        "--dry-run", action="store_true", help="print the email instead of sending it"
     )
     return parser
 

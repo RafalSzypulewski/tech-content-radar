@@ -2,7 +2,17 @@ from datetime import timedelta
 
 import pytest
 
-from radar.ranking import freshness, pre_rank, pre_score
+from radar.models import Enrichment
+from radar.ranking import (
+    cluster,
+    engagement_norm,
+    final_rank,
+    final_score,
+    freshness,
+    pre_rank,
+    pre_score,
+    quality_mix,
+)
 from tests.conftest import NOW
 from tests.test_store import _item
 
@@ -70,3 +80,68 @@ def test_excluded_items_and_limit():
     ranked = _rank(items, vectors, exclude={"a"}, limit=2)
 
     assert [r.item.id for r in ranked] == ["b", "c"]
+
+
+# --- final score -------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("engagement", "expected"),
+    [({}, 0.0), ({"points": 0}, 0.0), ({"points": 1000}, 1.0), ({"points": 5000}, 1.0),
+     ({"points": 30, "comments": 1}, 0.5016)],
+)
+def test_engagement_norm(engagement, expected):
+    assert engagement_norm(engagement) == pytest.approx(expected, abs=1e-4)
+
+
+def test_quality_mix_weights():
+    assert quality_mix(10, 0, 0) == pytest.approx(0.5)
+    assert quality_mix(0, 1, 0) == pytest.approx(0.3)
+    assert quality_mix(0, 0, 1) == pytest.approx(0.2)
+
+
+def test_final_score_weights():
+    assert final_score(10, 0, 0, 0) == pytest.approx(0.45)
+    assert final_score(0, 1, 0, 0) == pytest.approx(0.25)
+    assert final_score(0, 0, 1, 0) == pytest.approx(0.15)
+    assert final_score(0, 0, 0, 1) == pytest.approx(0.15)
+    assert final_score(0, 0, 0, 0, boost=0.1) == pytest.approx(0.1)
+    assert final_score(10, 1, 1, 1) == pytest.approx(1.0)
+
+
+def test_cluster_groups_similar_items_under_first_leader():
+    vectors = {"a": [1.0, 0.0], "b": [0.99, 0.1], "c": [0.0, 1.0], "d": [0.1, 0.99]}
+    assert cluster(["a", "c", "b", "d"], vectors, threshold=0.85) == {"a": ["b"], "c": ["d"]}
+    assert cluster(["a", "b"], vectors, threshold=0.999) == {"a": [], "b": []}
+
+
+def _scored(item_id, relevance, quality=5):
+    return Enrichment(id=item_id, scored_at=NOW, relevance=relevance, quality=quality)
+
+
+def test_final_rank_novelty_and_related():
+    items = [_aged("best", 1), _aged("dupe", 1), _aged("other", 1)]
+    scores = {"best": _scored("best", 9), "dupe": _scored("dupe", 8), "other": _scored("other", 7)}
+    vectors = {"best": [1.0, 0.0], "dupe": [0.99, 0.05], "other": [0.0, 1.0]}
+
+    entries = final_rank(items, scores, vectors, {}, NOW, half_life_days=7, cluster_threshold=0.85)
+
+    assert [e.item.id for e in entries] == ["best", "other"]
+    assert [r.item.id for r in entries[0].related] == ["dupe"]
+    fresh = freshness(NOW - timedelta(days=1), NOW, 7)
+    mix = quality_mix(5, 0.5, 0.0)
+    assert entries[0].score == pytest.approx(final_score(9, mix, fresh, 1.0))
+    assert entries[0].related[0].score == pytest.approx(final_score(8, mix, fresh, 0.3))
+
+
+def test_final_rank_uses_trust_and_engagement():
+    popular = _aged("b", 1).model_copy(update={"engagement": {"points": 999}})
+    items = [_aged("a", 1, "trusted"), popular]
+    scores = {"a": _scored("a", 5), "b": _scored("b", 5)}
+    vectors = {"a": [1.0, 0.0], "b": [0.0, 1.0]}
+
+    entries = final_rank(items, scores, vectors, {"trusted": 1.0}, NOW, 7, 0.85)
+
+    by_id = {e.item.id: e.score for e in entries}
+    # trust 1.0 vs default 0.5 -> +0.25*0.3*0.5; engagement ~1.0 -> +0.25*0.2*1.0
+    assert by_id["a"] - by_id["b"] == pytest.approx(0.25 * 0.3 * 0.5 - 0.25 * 0.2 * 1.0, abs=1e-3)

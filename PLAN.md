@@ -318,7 +318,9 @@ blog · Google Testing Blog · EN · 2026-10-27 · https://…
 **Why:** …
 **Tags:** test-automation, tutorial
 Related: [Other post on the same topic](https://…)
-- [ ] keep  - [ ] skip  - [ ] write
+- [ ] keep
+- [ ] skip
+- [ ] write
 ```
 
 - Items already shown in an earlier digest are not shown again.
