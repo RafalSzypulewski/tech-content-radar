@@ -1,6 +1,6 @@
 import pytest
 
-from radar.__main__ import COMMANDS, main
+from radar.__main__ import COMMANDS, HANDLERS, main
 
 
 def test_help_lists_all_commands(capsys):
@@ -18,7 +18,7 @@ def test_missing_command_is_an_error():
     assert exc.value.code == 2
 
 
-@pytest.mark.parametrize("command", list(COMMANDS))
+@pytest.mark.parametrize("command", [c for c in COMMANDS if c not in HANDLERS])
 def test_stub_commands_report_not_implemented(command, capsys):
     assert main([command]) == 1
     assert "not implemented yet" in capsys.readouterr().err

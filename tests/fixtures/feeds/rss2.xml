@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Przykładowy blog o testowaniu</title>
+    <link>https://blog.example.pl</link>
+    <description>Testy i automatyzacja</description>
+    <item>
+      <title>Automatyzacja testów z Playwright</title>
+      <link>https://blog.example.pl/playwright-od-zera/#komentarze</link>
+      <pubDate>Mon, 26 Oct 2026 09:30:00 +0100</pubDate>
+      <dc:creator>Jan Kowalski</dc:creator>
+      <description>&lt;p&gt;Jak zacząć automatyzację testów w Playwright.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Stary wpis</title>
+      <link>https://blog.example.pl/stary-wpis</link>
+      <pubDate>Thu, 01 Jan 2026 10:00:00 +0000</pubDate>
+      <description>Testowanie sprzed lat.</description>
+    </item>
+    <item>
+      <title>Wpis bez linku</title>
+      <description>Brak linku, pomijany.</description>
+    </item>
+  </channel>
+</rss>

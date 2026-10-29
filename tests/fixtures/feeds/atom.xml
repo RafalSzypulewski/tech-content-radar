@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Testing Blog</title>
+  <id>tag:example.com,2026:blog</id>
+  <updated>2026-10-27T12:00:00Z</updated>
+  <entry>
+    <id>tag:example.com,2026:post-1</id>
+    <title>Taming flaky tests   in CI</title>
+    <link rel="alternate" type="text/html" href="https://www.example.com/2026/10/flaky-tests/?utm_source=feed&amp;utm_medium=rss"/>
+    <published>2026-10-27T12:00:00-07:00</published>
+    <updated>2026-10-27T13:00:00-07:00</updated>
+    <author><name>Jane Tester</name></author>
+    <content type="html">&lt;p&gt;Flaky tests &lt;b&gt;erode&lt;/b&gt; trust in the suite.&lt;/p&gt;&lt;p&gt;Here is how we quarantine them &amp;amp; fix them.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <id>tag:example.com,2026:post-2</id>
+    <title>Gardening tips</title>
+    <link rel="alternate" type="text/html" href="https://www.example.com/2026/10/gardening/"/>
+    <updated>2026-10-20T08:00:00Z</updated>
+    <summary>Nothing about software at all.</summary>
+  </entry>
+</feed>
