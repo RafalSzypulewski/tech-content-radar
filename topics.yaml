@@ -1,0 +1,28 @@
+keywords:            # pre-filter, case-insensitive, EN + PL
+  - testing
+  - testowanie
+  - testy
+  - test automation
+  - automatyzacja
+  - QA
+  - quality assurance
+  - playwright
+  - selenium
+  - cypress
+  - pytest
+  - flaky
+  - CI/CD
+  - AI
+  - sztuczna inteligencja
+  - LLM
+  - agent
+profiles:            # used for embedding similarity (relevance)
+  - id: test-automation
+    text: "Test automation frameworks, patterns and practices: Playwright, Selenium, Cypress, pytest, flaky tests, test architecture."
+  - id: ai-in-testing
+    text: "Using AI and LLMs in software testing and QA: test generation, AI agents, evaluating AI systems."
+  - id: ai-engineering
+    text: "Practical AI engineering: LLM tools, agents, prompting, building with AI models."
+  - id: dev-practices
+    text: "Software engineering practices: CI/CD, DevOps, code quality, developer productivity."
+tags: [test-automation, ai-in-testing, ai, llm, tools, ci-cd, career, release, tutorial, opinion]

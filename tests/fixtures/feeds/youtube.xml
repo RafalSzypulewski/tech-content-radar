@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+  <link rel="self" href="http://www.youtube.com/feeds/videos.xml?channel_id=UCexample"/>
+  <id>yt:channel:example</id>
+  <title>Example Channel</title>
+  <author>
+    <name>Example Channel</name>
+    <uri>https://www.youtube.com/channel/UCexample</uri>
+  </author>
+  <entry>
+    <id>yt:video:abc123XYZ_-</id>
+    <yt:videoId>abc123XYZ_-</yt:videoId>
+    <title>Playwright in 5 minutes</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=abc123XYZ_-"/>
+    <author><name>Example Channel</name></author>
+    <published>2026-10-25T15:00:00+00:00</published>
+    <updated>2026-10-26T15:00:00+00:00</updated>
+    <media:group>
+      <media:title>Playwright in 5 minutes</media:title>
+      <media:description>A quick tour of Playwright test automation.</media:description>
+    </media:group>
+  </entry>
+  <entry>
+    <id>yt:video:short00001</id>
+    <yt:videoId>short00001</yt:videoId>
+    <title>One AI tip</title>
+    <link rel="alternate" href="https://www.youtube.com/shorts/short00001"/>
+    <author><name>Example Channel</name></author>
+    <published>2026-10-28T10:00:00+00:00</published>
+    <media:group>
+      <media:title>One AI tip</media:title>
+      <media:description>Short video.</media:description>
+    </media:group>
+  </entry>
+</feed>

@@ -1,0 +1,49 @@
+defaults:
+  trust: 0.5            # 0..1, used in ranking
+  max_age_days: 21
+sources:
+  - id: google-testing-blog
+    name: Google Testing Blog
+    kind: rss            # rss | hackernews | devto
+    type: blog           # blog | video | podcast | release | community
+    url: https://testing.googleblog.com/feeds/posts/default
+    lang: en
+    trust: 0.9
+    always_include: true # topic-specific source: skip keyword filter
+  - id: martin-fowler
+    name: Martin Fowler
+    kind: rss
+    type: blog
+    url: https://martinfowler.com/feed.atom
+    lang: en
+    trust: 0.9
+  - id: simon-willison
+    name: Simon Willison
+    kind: rss
+    type: blog
+    url: https://simonwillison.net/atom/everything/
+    lang: en
+    trust: 0.8
+  - id: playwright-releases
+    name: Playwright releases
+    kind: rss
+    type: release
+    url: https://github.com/microsoft/playwright/releases.atom
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: hn-testing
+    name: Hacker News
+    kind: hackernews
+    type: community
+    query: ["testing", "test automation", "playwright", "selenium", "LLM"]
+    min_points: 30
+  - id: devto-testing
+    name: dev.to
+    kind: devto
+    type: community
+    tags: ["testing", "automation", "qa", "ai"]
+  # YouTube channel: kind: rss, type: video,
+  #   url: https://www.youtube.com/feeds/videos.xml?channel_id=<CHANNEL_ID>
+  # Podcast: kind: rss, type: podcast, url: <podcast RSS feed>
+  # Polish sources: add with lang: pl
