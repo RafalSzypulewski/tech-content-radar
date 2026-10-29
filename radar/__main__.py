@@ -5,7 +5,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from radar.config import load_sources, load_topics
+from radar.config import load_settings, load_sources, load_topics
 
 COMMANDS = {
     "collect": "Collect items from sources into data/raw/ (GitHub Actions).",
@@ -31,15 +31,58 @@ def cmd_collect(args: argparse.Namespace) -> int:
     return 0
 
 
-HANDLERS = {"collect": cmd_collect}
+def cmd_enrich(args: argparse.Namespace) -> int:
+    """Pre-rank unscored items and score the top ones with claude -p."""
+    from radar import enriched, llm
+    from radar.embeddings import SentenceTransformerEmbedder, embed_items
+    from radar.ranking import pre_rank
+    from radar.store import Store
+
+    try:
+        llm.claude_executable()  # fail fast, before loading the embedding model
+    except llm.LLMSetupError as exc:
+        print(f"enrich: {exc}", file=sys.stderr)
+        return 1
+    settings = load_settings()
+    topics = load_topics(Path("topics.yaml"))
+    trust = {s.id: s.trust for s in load_sources(Path("sources.yaml"))}
+    now = datetime.now(UTC)
+
+    store = Store()
+    store.load_raw(RAW_DIR)
+    items = store.items()
+    embedder = SentenceTransformerEmbedder()
+    vectors = embed_items(store, embedder, items)
+    profiles = embedder.embed([p.text for p in topics.profiles])
+    store.close()
+
+    done = enriched.scored_ids(enriched.read_scores())
+    limit = args.max_items if args.max_items is not None else settings.LLM_MAX_ITEMS
+    top = pre_rank(
+        items, vectors, profiles, trust, now, settings.FRESHNESS_HALF_LIFE_DAYS, done, limit
+    )
+    print(f"enrich: {len(items)} items, {len(done)} already scored, scoring {len(top)}")
+    results = llm.score_items([r.item for r in top], topics.tags, settings.LLM_BATCH_SIZE, now)
+    enriched.append_scores(results)
+    failed = sum(1 for r in results if r.error)
+    print(f"enrich: scored {len(results) - failed}, failed {failed} -> {enriched.SCORES_PATH}")
+    return 0
+
+
+HANDLERS = {"collect": cmd_collect, "enrich": cmd_enrich}
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser with one subcommand per pipeline step."""
     parser = argparse.ArgumentParser(prog="radar", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
-    for name, help_text in COMMANDS.items():
-        subparsers.add_parser(name, help=help_text, description=help_text)
+    commands = {
+        name: subparsers.add_parser(name, help=help_text, description=help_text)
+        for name, help_text in COMMANDS.items()
+    }
+    commands["enrich"].add_argument(
+        "--max-items", type=int, help="score at most N items (default: LLM_MAX_ITEMS)"
+    )
     return parser
 
 

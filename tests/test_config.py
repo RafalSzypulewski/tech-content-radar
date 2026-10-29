@@ -21,7 +21,7 @@ def test_load_sources_merges_defaults(tmp_path):
 def test_settings_defaults(monkeypatch):
     monkeypatch.delenv("LLM_MAX_ITEMS", raising=False)
     monkeypatch.delenv("FRESHNESS_HALF_LIFE_DAYS", raising=False)
-    assert load_settings(env_file=None) == Settings(60, 7.0)
+    assert load_settings(env_file=None) == Settings(LLM_MAX_ITEMS=60, FRESHNESS_HALF_LIFE_DAYS=7.0)
 
 
 def test_settings_from_env_file_and_environment(tmp_path, monkeypatch):
@@ -31,4 +31,4 @@ def test_settings_from_env_file_and_environment(tmp_path, monkeypatch):
     env = tmp_path / ".env"
     env.write_text("LLM_MAX_ITEMS=10\n", encoding="utf-8")
 
-    assert load_settings(env) == Settings(10, 3.5)
+    assert load_settings(env) == Settings(LLM_MAX_ITEMS=10, FRESHNESS_HALF_LIFE_DAYS=3.5)

@@ -62,6 +62,7 @@ class Settings:
     """Tunable numbers; each can be overridden by an environment variable of the same name."""
 
     LLM_MAX_ITEMS: int = 60
+    LLM_BATCH_SIZE: int = 20
     FRESHNESS_HALF_LIFE_DAYS: float = 7.0
 
 
