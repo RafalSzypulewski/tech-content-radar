@@ -10,5 +10,18 @@ Markdown blog-post drafts for a static blog.
 
 ## Status
 
-Planning. Nothing is implemented yet — see [PLAN.md](PLAN.md) for the design and milestones (M0–M7).
-Setup and usage instructions will be added as milestones land.
+M0 (scaffold) — the CLI exists but every command is a stub. See [PLAN.md](PLAN.md) for the design
+and milestones (M0–M7). Full setup and usage instructions will be added as milestones land.
+
+## Development
+
+```bash
+python3.12 -m venv .venv      # Windows: py -3.12 -m venv .venv
+.venv/Scripts/activate        # Windows; use `source .venv/bin/activate` on macOS/Linux
+pip install -e ".[collect,dev]"
+python -m radar --help
+ruff check .
+pytest
+```
+
+Install `.[local]` as well for the local scoring step (embeddings).
