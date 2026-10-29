@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from radar.__main__ import COMMANDS, HANDLERS, main
-from radar.enriched import append_scores, read_scores
+from radar.enriched import append_scores, read_scores, read_state
 from radar.models import Enrichment
 from radar.rawstore import append_items
 from tests.conftest import NOW, FakeEmbedder
@@ -92,3 +92,38 @@ def test_digest_does_not_repeat_items(tmp_path, monkeypatch, mocker, capsys):
     [second] = [p for p in Path("review").glob("*.md") if p != first]
     text = second.read_text(encoding="utf-8")
     assert "(1 items)" in text and "<!-- id: c -->" in text
+
+
+def test_digest_uses_feedback_and_writes_state(tmp_path, monkeypatch, mocker, capsys):
+    root = Path(__file__).resolve().parent.parent
+    shutil.copy(root / "sources.yaml", tmp_path / "sources.yaml")
+    monkeypatch.chdir(tmp_path)
+    for name in ("DIGEST_SIZE", "CLUSTER_THRESHOLD", "FRESHNESS_HALF_LIFE_DAYS"):
+        monkeypatch.delenv(name, raising=False)
+    mocker.patch("radar.embeddings.SentenceTransformerEmbedder", FakeEmbedder)
+    # earlier digest: a garden post was skipped, a cooking post was kept
+    raw = Path("data/raw")
+    append_items(raw, date(2026, 10, 28), [_item("a1", "garden"), _item("a2", "cook")])
+    Path("review").mkdir()
+    Path("review/2026-10-28.md").write_text(
+        "# Review — 2026-10-28 (2 items)\n\n"
+        "### 1. G — score 0.5\n<!-- id: a1 -->\n- [ ] keep\n- [x] skip\n- [ ] write\n\n"
+        "### 2. C — score 0.5\n<!-- id: a2 -->\n- [x] keep\n- [ ] skip\n- [ ] write\n",
+        encoding="utf-8",
+    )
+    # two new items, equal scores: one like the skipped post, one like the kept post
+    append_items(raw, date(2026, 10, 29), [_item("b1", "garden"), _item("b2", "cook")])
+    append_scores(
+        [Enrichment(id=i, scored_at=NOW, relevance=5, quality=5) for i in ("b1", "b2")],
+        Path("data/enriched/scores.jsonl"),
+    )
+
+    assert main(["digest"]) == 0
+
+    assert "(feedback: 1 kept/written, 1 skipped)" in capsys.readouterr().out
+    [digest] = [p for p in Path("review").glob("*.md") if p.name != "2026-10-28.md"]
+    text = digest.read_text(encoding="utf-8")
+    assert text.index("<!-- id: b2 -->") < text.index("<!-- id: b1 -->")
+    state = read_state(Path("data/enriched/state.json"))
+    assert state["last_digest"] == digest.as_posix()
+    assert "last_processed_at" in state

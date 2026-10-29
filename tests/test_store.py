@@ -61,3 +61,10 @@ def test_embeddings_round_trip_per_model(tmp_path):
 
     assert store.get_embeddings("m1", ["a", "missing"]) == {"a": [0.5, -1.0, 2.0]}
     assert store.get_embeddings("m2", ["a"]) == {}
+
+
+def test_feedback_is_replaced_not_merged(tmp_path):
+    store = Store(tmp_path / "local.db")
+    store.replace_feedback({"a": "keep", "b": "skip"})
+    store.replace_feedback({"b": "write"})
+    assert store.feedback() == {"b": "write"}

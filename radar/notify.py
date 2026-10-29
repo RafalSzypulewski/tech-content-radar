@@ -1,11 +1,15 @@
 """Email notification via SMTP with STARTTLS (credentials from .env)."""
 
+import json
 import os
 import re
 import smtplib
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
+
+from radar import rawstore
 
 DRAFTS_DIR = Path("drafts")
 _HEADER = re.compile(r"^# Review — (\S+) \((\d+) items\)", re.MULTILINE)
@@ -87,3 +91,48 @@ def send(msg: EmailMessage, config: dict[str, str]) -> None:
         smtp.starttls()
         smtp.login(config["SMTP_USER"], config["SMTP_PASSWORD"])
         smtp.send_message(msg)
+
+
+# --- backlog reminder (GitHub Actions) ---------------------------------------------------
+
+META_PATH = Path("data/raw/_meta.json")
+REMINDER_INTERVAL = timedelta(hours=24)
+
+
+def count_backlog(raw_dir: Path, since: datetime | None) -> int:
+    """Raw items fetched after `since` (all items when the local step never ran)."""
+    return sum(
+        1
+        for path in raw_dir.glob("*.jsonl")
+        for item in rawstore.read_items(path)
+        if since is None or item.fetched_at > since
+    )
+
+
+def reminder_due(now: datetime, meta_path: Path = META_PATH) -> bool:
+    """At most one reminder per 24 h."""
+    if not meta_path.exists():
+        return True
+    last = json.loads(meta_path.read_text(encoding="utf-8")).get("last_reminder_at")
+    return last is None or now - datetime.fromisoformat(last) >= REMINDER_INTERVAL
+
+
+def record_reminder(now: datetime, meta_path: Path = META_PATH) -> None:
+    """Store the reminder time in data/raw/_meta.json (committed with the raw data)."""
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    meta["last_reminder_at"] = now.isoformat()
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8", newline="\n")
+
+
+def build_backlog_email(waiting: int, sender: str, to: str) -> EmailMessage:
+    """Short reminder: 'N items waiting — run the local step'."""
+    msg = EmailMessage()
+    msg["Subject"] = f"Radar: {waiting} items waiting — run the local step"
+    msg["From"] = sender
+    msg["To"] = to
+    msg.set_content(
+        f"{waiting} collected items have not been processed yet.\n\n"
+        "Run the local step: python -m radar run-local\n"
+    )
+    return msg

@@ -65,6 +65,7 @@ class Settings:
     LLM_BATCH_SIZE: int = 20
     DIGEST_SIZE: int = 20
     CLUSTER_THRESHOLD: float = 0.85
+    BACKLOG_ALERT: int = 100
     FRESHNESS_HALF_LIFE_DAYS: float = 7.0
 
 

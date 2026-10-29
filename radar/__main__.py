@@ -74,6 +74,7 @@ def cmd_digest(args: argparse.Namespace) -> int:
     """Rank scored items not shown before and write review/YYYY-MM-DD.md."""
     from radar import digest, enriched
     from radar.embeddings import SentenceTransformerEmbedder, embed_items
+    from radar.feedback import parse_all
     from radar.ranking import final_rank
     from radar.store import Store
 
@@ -86,14 +87,23 @@ def cmd_digest(args: argparse.Namespace) -> int:
 
     store = Store()
     store.load_raw(RAW_DIR)
-    candidates = [i for i in store.items() if i.id in done and i.id not in shown]
+    store.replace_feedback(parse_all())
+    feedback = store.feedback()
+    items = store.items()
+    candidates = [i for i in items if i.id in done and i.id not in shown]
     if not candidates:
         store.close()
+        enriched.write_state(now, None)
         print("digest: no new scored items; nothing written")
         return 0
-    vectors = embed_items(store, SentenceTransformerEmbedder(), candidates)
+    with_feedback = [i for i in items if i.id in feedback]
+    vectors = embed_items(store, SentenceTransformerEmbedder(), candidates + with_feedback)
     store.close()
 
+    # Feedback on items no longer in data/raw has no vector and is ignored.
+    known = {i: label for i, label in feedback.items() if i in vectors}
+    liked = [vectors[i] for i, label in known.items() if label in ("keep", "write")]
+    skipped = [vectors[i] for i, label in known.items() if label == "skip"]
     entries = final_rank(
         candidates,
         scores,
@@ -102,9 +112,62 @@ def cmd_digest(args: argparse.Namespace) -> int:
         now,
         settings.FRESHNESS_HALF_LIFE_DAYS,
         settings.CLUSTER_THRESHOLD,
+        liked,
+        skipped,
     )[: settings.DIGEST_SIZE]
     path = digest.write_digest(now.date(), digest.render_digest(now.date(), entries))
-    print(f"digest: {len(entries)} items -> {path.as_posix()}")
+    enriched.write_state(now, path.as_posix())
+    print(
+        f"digest: {len(entries)} items -> {path.as_posix()} "
+        f"(feedback: {len(liked)} kept/written, {len(skipped)} skipped)"
+    )
+    return 0
+
+
+def _deliver(build, dry_run: bool) -> None:
+    """Build an email with `build(sender, to)` and send it, or print it on a dry run.
+
+    Raises NotifyError / OSError (smtplib errors are OSError subclasses).
+    """
+    from radar import notify
+
+    if dry_run:
+        sender = os.environ.get("SMTP_USER") or "SMTP_USER not set"
+        to = os.environ.get("NOTIFY_TO") or "NOTIFY_TO not set"
+        msg = build(sender, to)
+        # Not msg.as_string(): non-ASCII bodies would print as base64.
+        print(f"Subject: {msg['Subject']}\nFrom: {sender}\nTo: {to}\n\n{msg.get_content()}")
+        return
+    config = notify.smtp_config()
+    msg = build(config["SMTP_USER"], config["NOTIFY_TO"])
+    notify.send(msg, config)
+    print(f"notify: sent '{msg['Subject']}' to {config['NOTIFY_TO']}")
+
+
+def _notify_backlog(dry_run: bool) -> int:
+    """Remind by email when many collected items wait for the local step (GitHub Actions).
+
+    Never fails: a missing secret or SMTP error must not stop the collect workflow.
+    """
+    from radar import enriched, notify
+
+    settings = load_settings()
+    now = datetime.now(UTC)
+    last = enriched.read_state().get("last_processed_at")
+    waiting = notify.count_backlog(RAW_DIR, datetime.fromisoformat(last) if last else None)
+    print(f"backlog: {waiting} items waiting (alert at {settings.BACKLOG_ALERT})")
+    if waiting < settings.BACKLOG_ALERT:
+        return 0
+    if not notify.reminder_due(now):
+        print("backlog: reminder already sent in the last 24 h")
+        return 0
+    try:
+        _deliver(lambda sender, to: notify.build_backlog_email(waiting, sender, to), dry_run)
+    except (notify.NotifyError, OSError) as exc:
+        print(f"::warning::backlog reminder not sent: {exc}")
+        return 0
+    if not dry_run:
+        notify.record_reminder(now)
     return 0
 
 
@@ -113,24 +176,15 @@ def cmd_notify(args: argparse.Namespace) -> int:
     from radar import notify
 
     load_settings()  # loads .env into the environment
+    if args.backlog:
+        return _notify_backlog(args.dry_run)
     try:
         summary = notify.read_digest(notify.latest_digest(Path("review")))
         drafts = notify.count_drafts(summary.day)
-        if args.dry_run:
-            sender = os.environ.get("SMTP_USER") or "SMTP_USER not set"
-            to = os.environ.get("NOTIFY_TO") or "NOTIFY_TO not set"
-            msg = notify.build_email(summary, drafts, sender, to)
-            # Not msg.as_string(): non-ASCII bodies would print as base64.
-            print(f"Subject: {msg['Subject']}\nFrom: {sender}\nTo: {to}\n\n{msg.get_content()}")
-            return 0
-        config = notify.smtp_config()
-        to = config["NOTIFY_TO"]
-        msg = notify.build_email(summary, drafts, config["SMTP_USER"], to)
-        notify.send(msg, config)
-    except (notify.NotifyError, OSError) as exc:  # smtplib errors are OSError subclasses
+        _deliver(lambda sender, to: notify.build_email(summary, drafts, sender, to), args.dry_run)
+    except (notify.NotifyError, OSError) as exc:
         print(f"notify: {exc}", file=sys.stderr)
         return 1
-    print(f"notify: sent '{msg['Subject']}' to {to}")
     return 0
 
 
@@ -155,6 +209,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     commands["notify"].add_argument(
         "--dry-run", action="store_true", help="print the email instead of sending it"
+    )
+    commands["notify"].add_argument(
+        "--backlog",
+        action="store_true",
+        help="remind when BACKLOG_ALERT+ collected items wait for the local step",
     )
     return parser
 

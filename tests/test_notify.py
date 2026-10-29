@@ -1,4 +1,5 @@
 import shutil
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -7,14 +8,20 @@ from radar.__main__ import main
 from radar.notify import (
     DigestSummary,
     NotifyError,
+    build_backlog_email,
     build_email,
+    count_backlog,
     count_drafts,
     latest_digest,
     read_digest,
+    record_reminder,
+    reminder_due,
     send,
     smtp_config,
 )
-from tests.conftest import FIXTURES
+from radar.rawstore import append_items
+from tests.conftest import FIXTURES, NOW
+from tests.test_store import _item
 
 SMTP_ENV = {
     "SMTP_HOST": "smtp.example.com",
@@ -155,3 +162,100 @@ def test_dry_run_prints_non_ascii_readably(tmp_path, monkeypatch, capsys):
 
     assert main(["notify", "--dry-run"]) == 0
     assert "1. Flaky tests: przewodnik — zażółć (0.87)" in capsys.readouterr().out
+
+
+# --- backlog reminder ---------------------------------------------------------------------
+
+
+def _raw_with_fetch_times(raw_dir: Path, *fetched: datetime) -> None:
+    items = [
+        _item(f"{n:012x}").model_copy(update={"fetched_at": t}) for n, t in enumerate(fetched)
+    ]
+    append_items(raw_dir, date(2026, 10, 29), items)
+
+
+def test_count_backlog(tmp_path):
+    _raw_with_fetch_times(tmp_path, NOW - timedelta(hours=2), NOW, NOW + timedelta(hours=1))
+    (tmp_path / "_meta.json").write_text("{}", encoding="utf-8")
+
+    assert count_backlog(tmp_path, NOW - timedelta(hours=1)) == 2
+    assert count_backlog(tmp_path, None) == 3
+
+
+def test_reminder_at_most_once_per_24h(tmp_path):
+    meta = tmp_path / "_meta.json"
+    assert reminder_due(NOW, meta)
+
+    record_reminder(NOW, meta)
+
+    assert not reminder_due(NOW + timedelta(hours=23), meta)
+    assert reminder_due(NOW + timedelta(hours=24), meta)
+
+
+def test_backlog_email():
+    msg = build_backlog_email(120, "a@example.com", "b@example.com")
+    assert msg["Subject"] == "Radar: 120 items waiting — run the local step"
+    assert "120 collected items" in msg.get_content()
+
+
+def _backlog_repo(tmp_path, monkeypatch, waiting: int, alert: int = 3):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BACKLOG_ALERT", str(alert))
+    state = Path("data/enriched/state.json")
+    state.parent.mkdir(parents=True)
+    state.write_text(f'{{"last_processed_at": "{NOW.isoformat()}"}}', encoding="utf-8")
+    later = NOW + timedelta(minutes=1)
+    _raw_with_fetch_times(Path("data/raw"), NOW - timedelta(days=1), *[later] * waiting)
+
+
+def test_backlog_below_threshold_sends_nothing(tmp_path, monkeypatch, mocker, capsys):
+    _backlog_repo(tmp_path, monkeypatch, waiting=2)
+    smtp_class = mocker.patch("radar.notify.smtplib.SMTP")
+
+    assert main(["notify", "--backlog"]) == 0
+
+    assert "2 items waiting (alert at 3)" in capsys.readouterr().out
+    smtp_class.assert_not_called()
+
+
+def test_backlog_sends_once_and_records(tmp_path, monkeypatch, mocker, capsys):
+    _backlog_repo(tmp_path, monkeypatch, waiting=3)
+    for name, value in SMTP_ENV.items():
+        monkeypatch.setenv(name, value)
+    smtp_class = mocker.patch("radar.notify.smtplib.SMTP")
+
+    assert main(["notify", "--backlog"]) == 0
+    assert main(["notify", "--backlog"]) == 0
+
+    smtp = smtp_class.return_value.__enter__.return_value
+    assert smtp.send_message.call_count == 1
+    sent = smtp.send_message.call_args.args[0]
+    assert sent["Subject"] == "Radar: 3 items waiting — run the local step"
+    assert "last_reminder_at" in Path("data/raw/_meta.json").read_text(encoding="utf-8")
+    assert "already sent in the last 24 h" in capsys.readouterr().out
+
+
+def test_backlog_never_fails_the_workflow(tmp_path, monkeypatch, mocker, capsys):
+    _backlog_repo(tmp_path, monkeypatch, waiting=3)
+    for name in SMTP_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+    assert main(["notify", "--backlog"]) == 0  # missing secrets
+
+    for name, value in SMTP_ENV.items():
+        monkeypatch.setenv(name, value)
+    mocker.patch("radar.notify.smtplib.SMTP", side_effect=OSError("connection refused"))
+    assert main(["notify", "--backlog"]) == 0  # SMTP down
+
+    out = capsys.readouterr().out
+    assert out.count("::warning::backlog reminder not sent") == 2
+    assert not Path("data/raw/_meta.json").exists()  # not recorded, so it retries next run
+
+
+def test_backlog_without_state_counts_everything(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BACKLOG_ALERT", "100")
+    _raw_with_fetch_times(Path("data/raw"), NOW, NOW)
+
+    assert main(["notify", "--backlog", "--dry-run"]) == 0
+    assert "2 items waiting" in capsys.readouterr().out

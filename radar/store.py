@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS embeddings (
     vector BLOB NOT NULL,
     PRIMARY KEY (id, model)
 );
+CREATE TABLE IF NOT EXISTS feedback (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL
+);
 """
 
 
@@ -55,6 +59,18 @@ class Store:
         """All cached items."""
         rows = self.conn.execute("SELECT data FROM items ORDER BY id")
         return [RawItem.model_validate_json(data) for (data,) in rows]
+
+    def replace_feedback(self, feedback: dict[str, str]) -> None:
+        """Replace all feedback (it is re-parsed from review/*.md on every run)."""
+        with self.conn:
+            self.conn.execute("DELETE FROM feedback")
+            self.conn.executemany(
+                "INSERT INTO feedback (id, label) VALUES (?, ?)", feedback.items()
+            )
+
+    def feedback(self) -> dict[str, str]:
+        """Item id -> keep / skip / write."""
+        return dict(self.conn.execute("SELECT id, label FROM feedback"))
 
     def get_embeddings(self, model: str, ids: list[str]) -> dict[str, list[float]]:
         """Cached vectors for `ids` (missing ids are simply absent)."""
