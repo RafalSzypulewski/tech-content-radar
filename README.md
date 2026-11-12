@@ -15,9 +15,9 @@ See [PLAN.md](PLAN.md) for the full design.
 
 ```
 GitHub Actions, every 6 h               Your machine (python -m radar run-local)
-collect → dedupe → pre-filter            git pull → enrich (claude -p) → digest
-→ data/raw/YYYY-MM-DD.jsonl              → drafts → email → commit & push
-→ backlog reminder email                 data/enriched/, review/, drafts/
+collect → dedupe → pre-filter            git pull → collect → enrich (claude -p)
+→ data/raw/YYYY-MM-DD.jsonl              → digest → drafts → email → commit & push
+→ backlog reminder email                 data/raw/, data/enriched/, review/, drafts/
 ```
 
 1. You get an email: *Radar: 20 new items to review*.
@@ -72,13 +72,15 @@ python -m radar run-local --no-email       # skip the email
 python -m radar run-local --max-items 10   # score at most 10 items with claude
 ```
 
-`run-local` runs: `git pull --rebase --autostash` → `enrich` → `digest` → `draft` → `notify` →
-commit and push `data/enriched/`, `review/` and `drafts/` (nothing else). Run it from the repository
+`run-local` runs: `git pull --rebase --autostash` → `collect` → `enrich` → `digest` → `draft` →
+`notify` → commit and push `data/raw/`, `data/enriched/`, `review/` and `drafts/` (nothing else).
+`collect` runs here too because some feeds (e.g. `*.substack.com`) block GitHub Actions runners;
+[.gitattributes](.gitattributes) merges `data/raw/` files from both places without conflicts. Run it from the repository
 root. Each step is also a command of its own:
 
 | Command | What it does |
 |---|---|
-| `collect` | Fetch all sources into `data/raw/` (normally only on GitHub Actions) |
+| `collect` | Fetch all sources into `data/raw/` (GitHub Actions and `run-local`) |
 | `enrich [--max-items N]` | Pre-rank unscored items and score the top ones with `claude -p` |
 | `digest` | Write `review/YYYY-MM-DD.md` with items not shown before |
 | `draft` | Write `drafts/YYYY-MM-DD-roundup.md` from items marked `write` |

@@ -197,6 +197,9 @@ def steps(mocker):
                 or subprocess.CompletedProcess(cmd, 0, stdout="\n".join(staged))
             ),
         )
+        mocker.patch(
+            "radar.__main__.cmd_collect", side_effect=step("collect", results.get("collect"))
+        )
         mocker.patch("radar.__main__.cmd_enrich", side_effect=step("enrich", results.get("enrich")))
         state = {"last_digest": None}
         mocker.patch("radar.enriched.read_state", side_effect=lambda *a, **k: dict(state))
@@ -217,7 +220,7 @@ def steps(mocker):
 
 def test_run_local_step_order(tmp_path, monkeypatch, steps):
     monkeypatch.chdir(tmp_path)
-    for d in ("data/enriched", "review", "drafts"):
+    for d in ("data/raw", "data/enriched", "review", "drafts"):
         Path(d).mkdir(parents=True)
     calls = steps()
 
@@ -225,11 +228,12 @@ def test_run_local_step_order(tmp_path, monkeypatch, steps):
 
     assert [c.split(" -m ")[0] for c in calls] == [
         "git pull --rebase --autostash",
+        "collect",
         "enrich",
         "digest",
         "draft",
         "notify",
-        "git add data/enriched review drafts",
+        "git add data/raw data/enriched review drafts",
         "git diff --cached",
         "git commit",
         "git pull --rebase --autostash",
@@ -261,7 +265,7 @@ def test_run_local_no_email_without_new_digest(tmp_path, monkeypatch, steps):
     assert "notify" not in calls
 
 
-@pytest.mark.parametrize("failing", ["enrich", "digest"])
+@pytest.mark.parametrize("failing", ["collect", "enrich", "digest"])
 def test_run_local_stops_when_a_core_step_fails(tmp_path, monkeypatch, steps, failing):
     monkeypatch.chdir(tmp_path)
     calls = steps(**{failing: 1})

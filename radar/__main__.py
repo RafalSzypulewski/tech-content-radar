@@ -221,7 +221,8 @@ def cmd_draft(args: argparse.Namespace) -> int:
     return 0
 
 
-LOCAL_OUTPUTS = ("data/enriched", "review", "drafts")  # the only paths the local step commits
+# The only paths the local step commits.
+LOCAL_OUTPUTS = ("data/raw", "data/enriched", "review", "drafts")
 
 
 def _git(*args: str) -> None:
@@ -230,7 +231,7 @@ def _git(*args: str) -> None:
 
 
 def _commit_and_push(push: bool) -> None:
-    """Commit data/enriched/, review/ and drafts/ (only those paths) and optionally push."""
+    """Commit LOCAL_OUTPUTS (only those paths) and optionally push."""
     paths = [p for p in LOCAL_OUTPUTS if Path(p).exists()]
     _git("add", "--", *paths)
     # Commit the staged files by name: a pathspec like an empty drafts/ folder that git
@@ -252,13 +253,16 @@ def _commit_and_push(push: bool) -> None:
 
 
 def cmd_run_local(args: argparse.Namespace) -> int:
-    """pull -> enrich -> digest -> draft -> notify -> commit & push."""
+    """pull -> collect -> enrich -> digest -> draft -> notify -> commit & push."""
     from radar import enriched
 
     try:
         _git("pull", "--rebase", "--autostash")
     except subprocess.CalledProcessError as exc:
         print(f"run-local: git pull failed ({exc}); stopping", file=sys.stderr)
+        return 1
+    # Also collect here: some feeds (e.g. *.substack.com) block GitHub Actions runners.
+    if cmd_collect(argparse.Namespace()) != 0:
         return 1
     if cmd_enrich(argparse.Namespace(max_items=args.max_items)) != 0:
         return 1
