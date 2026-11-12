@@ -1,0 +1,3 @@
+# Raw files are append-only and written by both GitHub Actions and run-local:
+# keep both sides' lines instead of conflicting on rebase. Duplicate ids are ignored on load.
+data/raw/*.jsonl merge=union
