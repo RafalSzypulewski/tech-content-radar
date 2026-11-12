@@ -1,5 +1,6 @@
 """Run all collectors: dedupe, pre-filter and append to data/raw/."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -36,34 +37,41 @@ def collect_all(
     now: datetime,
     client: httpx.Client,
     min_score: int,
+    on_source: Callable[[SourceStats], None] = lambda stat: None,
 ) -> list[SourceStats]:
-    """Collect every source; one failing source never stops the run."""
+    """Collect every source; one failing source never stops the run.
+
+    `on_source` is called with each source's stats as soon as that source is done.
+    """
     seen = rawstore.known_ids(raw_dir, now.date())
     kept_items = []
     stats = []
     for source in sources:
         stat = SourceStats(source.id)
         stats.append(stat)
-        collector = COLLECTORS.get(source.kind)
-        if collector is None:
-            stat.error = f"kind '{source.kind}' not supported yet"
-            continue
         try:
-            items = collector(client, source, now)
-        except Exception as exc:  # any source failure is logged, never fatal
-            stat.error = f"{type(exc).__name__}: {exc}"
-            continue
-        stat.fetched = len(items)
-        for item in items:
-            if item.id in seen:
+            collector = COLLECTORS.get(source.kind)
+            if collector is None:
+                stat.error = f"kind '{source.kind}' not supported yet"
                 continue
-            seen.add(item.id)
-            stat.new += 1
-            score, matched = keyword_score(f"{item.title} {item.text}", terms)
-            item = item.model_copy(update={"matched_keywords": matched})
-            if keep(item, source, now, score, min_score):
-                stat.kept += 1
-                kept_items.append(add_text_and_lang(client, item, source))
+            try:
+                items = collector(client, source, now)
+            except Exception as exc:  # any source failure is logged, never fatal
+                stat.error = f"{type(exc).__name__}: {exc}"
+                continue
+            stat.fetched = len(items)
+            for item in items:
+                if item.id in seen:
+                    continue
+                seen.add(item.id)
+                stat.new += 1
+                score, matched = keyword_score(f"{item.title} {item.text}", terms)
+                item = item.model_copy(update={"matched_keywords": matched})
+                if keep(item, source, now, score, min_score):
+                    stat.kept += 1
+                    kept_items.append(add_text_and_lang(client, item, source))
+        finally:
+            on_source(stat)
     if kept_items:
         rawstore.append_items(raw_dir, now.date(), kept_items)
     return stats
@@ -91,12 +99,15 @@ def make_client() -> httpx.Client:
     )
 
 
-def format_summary(stats: list[SourceStats]) -> str:
-    """Plain-text table: source, fetched, new, kept, errors."""
-    rows = [("source", "fetched", "new", "kept", "errors")]
-    rows += [(s.source_id, str(s.fetched), str(s.new), str(s.kept), s.error) for s in stats]
-    widths = [max(len(row[i]) for row in rows) for i in range(4)]
-    return "\n".join(
-        "  ".join(cell.ljust(w) for cell, w in zip(row[:4], widths, strict=True)) + "  " + row[4]
-        for row in rows
-    )
+HEADER = ("source", "fetched", "new", "kept", "errors")
+
+
+def format_row(cells: tuple[str, ...], source_width: int) -> str:
+    """One table line. Number columns have fixed widths so rows can be printed one by one."""
+    widths = (source_width, len("fetched"), 5, 5)
+    return "  ".join(c.ljust(w) for c, w in zip(cells[:4], widths, strict=True)) + "  " + cells[4]
+
+
+def stats_cells(stat: SourceStats) -> tuple[str, ...]:
+    """A source's stats as table cells, in HEADER order."""
+    return (stat.source_id, str(stat.fetched), str(stat.new), str(stat.kept), stat.error)
