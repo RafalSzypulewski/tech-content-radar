@@ -2,14 +2,117 @@ defaults:
   trust: 0.5            # 0..1, used in ranking
   max_age_days: 21
 sources:
-  - id: google-testing-blog
-    name: Google Testing Blog
+
+  # ---- Seeds ---------------------------------------------------------------
+
+  - id: developsense
+    name: DevelopSense (Michael Bolton)
     kind: rss            # rss | hackernews | devto
     type: blog           # blog | video | podcast | release | community
-    url: https://testing.googleblog.com/feeds/posts/default
+    url: https://developsense.com/feed
     lang: en
     trust: 0.9
     always_include: true # topic-specific source: skip keyword filter
+  - id: quality-remarks
+    name: Quality Remarks (Keith Klain)
+    kind: rss
+    type: blog
+    url: https://qualityremarks.com/feed/
+    lang: en
+    trust: 0.9
+    always_include: true
+  - id: testing-station-pl
+    name: Testing Station PL
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCjmlDQZw0xw2iWxUmV193xQ
+    lang: pl
+    trust: 0.9
+    always_include: true
+  - id: perfbytes
+    name: PerfBytes
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UC1LWfRu1faYDeyINPsCo3lQ
+    lang: en
+    trust: 0.9
+    always_include: true
+    # Also a performance-testing podcast
+
+  # ---- Testing blogs ---------------------------------------------------------
+
+  - id: visible-quality
+    name: Visible Quality (Maaret Pyhäjärvi)
+    kind: rss
+    type: blog
+    url: https://visible-quality.blogspot.com/feeds/posts/default
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: test-head
+    name: Test Head (Michael Larsen)
+    kind: rss
+    type: blog
+    url: https://www.mkltesthead.com/feeds/posts/default
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: thinking-tester
+    name: Thinking Tester
+    kind: rss
+    type: blog
+    url: https://thinkingtester.com/feed/
+    lang: en
+    trust: 0.7
+    always_include: true
+  - id: lisa-crispin
+    name: Lisa Crispin
+    kind: rss
+    type: blog
+    url: https://lisacrispin.com/feed/
+    lang: en
+    trust: 0.7
+    always_include: true
+  - id: eviltester
+    name: EvilTester (Alan Richardson)
+    kind: rss
+    type: blog
+    url: https://www.eviltester.com/index.xml
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: automation-panda
+    name: Automation Panda (Andrew Knight)
+    kind: rss
+    type: blog
+    url: https://automationpanda.com/feed/
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: on-test-automation
+    name: On Test Automation (Bas Dijkstra)
+    kind: rss
+    type: blog
+    url: https://www.ontestautomation.com/feed.xml
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: google-testing-blog
+    name: Google Testing Blog
+    kind: rss
+    type: blog
+    url: https://testing.googleblog.com/feeds/posts/default
+    lang: en
+    trust: 0.7
+    always_include: true
+  - id: testguild
+    name: Joe Colantonio / TestGuild
+    kind: rss
+    type: blog
+    url: https://testguild.com/feed/
+    lang: en
+    trust: 0.7
+    always_include: true
   - id: martin-fowler
     name: Martin Fowler
     kind: rss
@@ -17,6 +120,157 @@ sources:
     url: https://martinfowler.com/feed.atom
     lang: en
     trust: 0.9
+
+  # ---- Podcasts --------------------------------------------------------------
+
+  - id: testguild-podcast
+    name: TestGuild Automation Podcast
+    kind: rss
+    type: podcast
+    url: https://rss.libsyn.com/shows/51668/destinations/184057.xml
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: modern-testing
+    name: AB Testing (formerly Modern Testing; Alan Page, Brent Jensen)
+    kind: rss
+    type: podcast
+    url: https://anchor.fm/s/45580f58/podcast/rss
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: testing-peers
+    name: Testing Peers
+    kind: rss
+    type: podcast
+    url: https://rss.buzzsprout.com/1078751.rss
+    lang: en
+    trust: 0.7
+    always_include: true
+  - id: mot-motaverse
+    name: Into the MoTaverse (Ministry of Testing)
+    kind: rss
+    type: podcast
+    url: https://fast.wistia.com/channels/b2j0jiwz2n/rss
+    lang: en
+    trust: 0.7
+    always_include: true
+
+  # ---- YouTube ---------------------------------------------------------------
+
+  - id: eviltester-yt
+    name: EvilTester
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCCAwIFH3FRVD9GBuVRW_mUw
+    lang: en
+    trust: 0.8
+    always_include: true
+  - id: execute-automation
+    name: Execute Automation
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCO1aucBAJgFR8odzfXOZ5uw
+    lang: en
+    trust: 0.7
+    always_include: true
+  - id: testing-mini-bytes
+    name: Testing Mini Bytes
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UC6PTXUHb6j4Oxf0ccdRI11A
+    lang: en
+    trust: 0.7
+    always_include: true
+  - id: testing-academy
+    name: The Testing Academy
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UC2TpiJFaC0f4_5GopyMkDdQ
+    lang: en
+    trust: 0.7
+    always_include: true
+  - id: letcode
+    name: LetCode with Koushik
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UCNcnqL0P17hISKlOxTjkJ0g
+    lang: en
+    trust: 0.6
+    always_include: true
+  - id: sdet-qa
+    name: SDET-QA (Pavan)
+    kind: rss
+    type: video
+    url: https://www.youtube.com/feeds/videos.xml?channel_id=UC46vj6mN-6kZm5RYWWqebsg
+    lang: en
+    trust: 0.5
+    always_include: true
+    # Popular but mostly beginner tutorials
+
+  # ---- Polish testing sources ------------------------------------------------
+
+  - id: jaktestowac
+    name: jaktestowac.pl
+    kind: rss
+    type: blog
+    url: https://jaktestowac.pl/blog/feed/
+    lang: pl
+    trust: 0.9
+    always_include: true
+    # Also playwright.info blog, YouTube channel and Discord
+  - id: testerzy-pl
+    name: testerzy.pl
+    kind: rss
+    type: blog
+    url: http://testerzy.pl/rss
+    lang: pl
+    trust: 0.8
+    always_include: true
+    # Longest-running Polish tester portal; runs TestingCup
+
+  # ---- AI and testing --------------------------------------------------------
+
+  - id: satisfice
+    name: Satisfice (James Bach)
+    kind: rss
+    type: blog
+    url: https://www.satisfice.com/feed
+    lang: en
+    trust: 0.9
+    always_include: true
+    # Has an AI and Testing category; also runs WAIT peer conference
+  - id: developsense-ai
+    name: DevelopSense AI category
+    kind: rss
+    type: blog
+    url: https://developsense.com/blog/category/artificial-intelligence/feed/
+    lang: en
+    trust: 0.9
+    always_include: true
+    # Overlaps with developsense; duplicate items are dropped by URL
+
+  # ---- Evals (testing AI systems) --------------------------------------------
+
+  - id: hamel-husain
+    name: Hamel Husain
+    kind: rss
+    type: blog
+    url: https://hamel.dev/index.xml
+    lang: en
+    trust: 0.9
+    always_include: true
+  - id: pragmatic-engineer
+    name: The Pragmatic Engineer
+    kind: rss
+    type: blog
+    url: https://newsletter.pragmaticengineer.com/feed
+    lang: en
+    trust: 0.7
+    # Some deep dives are paid
+
+  # ---- General AI and tech (keyword-filtered) --------------------------------
+
   - id: simon-willison
     name: Simon Willison
     kind: rss
@@ -24,6 +278,83 @@ sources:
     url: https://simonwillison.net/atom/everything/
     lang: en
     trust: 0.8
+    # Near-daily; best source for model releases
+  - id: latent-space
+    name: Latent Space
+    kind: rss
+    type: blog
+    url: https://www.latent.space/feed
+    lang: en
+    trust: 0.7
+
+  # ---- Newsletters: testing (low weight, discovery) --------------------------
+
+  - id: software-testing-notes
+    name: Software Testing Notes
+    kind: rss
+    type: blog
+    url: https://softwaretestingnotes.substack.com/feed
+    lang: en
+    trust: 0.6
+    always_include: true
+    # Weekly, curated links
+  - id: angry-weasel
+    name: The Weasel Speaks (Alan Page)
+    kind: rss
+    type: blog
+    url: https://angryweasel.substack.com/feed
+    lang: en
+    trust: 0.8
+    # Mixed topics (testing, leadership, other); keyword-filtered
+
+  # ---- Newsletters: AI and QA (small and young, check quality first) ---------
+
+  - id: qa-meets-ai
+    name: QA Meets AI
+    kind: rss
+    type: blog
+    url: https://qaflow.substack.com/feed
+    lang: en
+    trust: 0.6
+    always_include: true
+  - id: quality-engineering
+    name: Quality Engineering Newsletter
+    kind: rss
+    type: blog
+    url: https://qualityeng.substack.com/feed
+    lang: en
+    trust: 0.6
+    always_include: true
+    # Fortnightly; some issues paid
+  - id: testdojo
+    name: TestDojo
+    kind: rss
+    type: blog
+    url: https://testdojo.substack.com/feed
+    lang: en
+    trust: 0.6
+    always_include: true
+
+  # ---- Polish AI and developer sources ---------------------------------------
+
+  - id: przeprogramowani
+    name: Przeprogramowani
+    kind: rss
+    type: blog
+    url: https://przeprogramowani.substack.com/feed
+    lang: pl
+    trust: 0.7
+    # Separate Opanuj.AI newsletter sends 3 AI items every Monday
+  - id: bliskie-spotkania-ai
+    name: Bliskie Spotkania z AI
+    kind: rss
+    type: podcast
+    url: https://anchor.fm/s/fb204224/podcast/rss
+    lang: pl
+    trust: 0.6
+
+  # ---- Releases and communities ----------------------------------------------
+
   - id: playwright-releases
     name: Playwright releases
     kind: rss
@@ -43,14 +374,6 @@ sources:
     kind: devto
     type: community
     tags: ["testing", "automation", "qa", "ai"]
-  - id: quality-remarks
-    name: Quality Remarks
-    kind: rss
-    type: blog
-    url: https://qualityremarks.com/feed/
-    lang: en
-    trust: 0.8
-  # YouTube channel: kind: rss, type: video,
-  #   url: https://www.youtube.com/feeds/videos.xml?channel_id=<CHANNEL_ID>
-  # Podcast: kind: rss, type: podcast, url: <podcast RSS feed>
-  # Polish sources: add with lang: pl
+
+# Deliberately excluded (SEO-driven vendor or tutorial content):
+#   LambdaTest, Tricentis, QASource, Test Fort blogs; Guru99; Software Testing Help
