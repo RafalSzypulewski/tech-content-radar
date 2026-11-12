@@ -369,11 +369,6 @@ sources:
     type: community
     query: ["testing", "test automation", "playwright", "selenium", "LLM"]
     min_points: 30
-  - id: devto-testing
-    name: dev.to
-    kind: devto
-    type: community
-    tags: ["testing", "automation", "qa", "ai"]
 
 # Deliberately excluded (SEO-driven vendor or tutorial content):
 #   LambdaTest, Tricentis, QASource, Test Fort blogs; Guru99; Software Testing Help
