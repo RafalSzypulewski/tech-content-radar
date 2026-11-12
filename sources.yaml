@@ -182,14 +182,6 @@ sources:
     lang: en
     trust: 0.7
     always_include: true
-  - id: testing-academy
-    name: The Testing Academy
-    kind: rss
-    type: video
-    url: https://www.youtube.com/feeds/videos.xml?channel_id=UC2TpiJFaC0f4_5GopyMkDdQ
-    lang: en
-    trust: 0.7
-    always_include: true
   - id: letcode
     name: LetCode with Koushik
     kind: rss
