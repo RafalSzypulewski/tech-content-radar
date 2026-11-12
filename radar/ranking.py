@@ -6,11 +6,13 @@ from datetime import datetime
 
 from radar.embeddings import cosine, relevance
 from radar.models import Enrichment, RawItem
+from radar.prefilter import Term, keyword_score
 
 DEFAULT_TRUST = 0.5  # for items whose source is no longer in sources.yaml
 ENGAGEMENT_CAP = 1000  # points + comments (or reactions + comments) that count as "max"
 NOVELTY_BEST = 1.0
 NOVELTY_RELATED = 0.3
+KEYWORD_CAP = 15  # keyword score that counts as "max" in pre-rank
 
 
 @dataclass
@@ -20,6 +22,7 @@ class Ranked:
     item: RawItem
     score: float
     relevance: float
+    keyword: float
     freshness: float
     trust: float
 
@@ -30,15 +33,21 @@ def freshness(published_at: datetime, now: datetime, half_life_days: float) -> f
     return 0.5 ** (age_days / half_life_days)
 
 
-def pre_score(relevance: float, freshness: float, trust: float) -> float:
-    """pre = 0.6·relevance + 0.25·freshness + 0.15·trust."""
-    return 0.6 * relevance + 0.25 * freshness + 0.15 * trust
+def keyword_norm(score: int) -> float:
+    """Keyword score scaled to 0..1 (KEYWORD_CAP or more = 1.0)."""
+    return min(1.0, score / KEYWORD_CAP)
+
+
+def pre_score(relevance: float, keyword: float, freshness: float, trust: float) -> float:
+    """pre = 0.4·relevance + 0.3·keyword + 0.15·freshness + 0.15·trust."""
+    return 0.4 * relevance + 0.3 * keyword + 0.15 * freshness + 0.15 * trust
 
 
 def pre_rank(
     items: list[RawItem],
     vectors: dict[str, list[float]],
     profile_vectors: list[list[float]],
+    terms: list[Term],
     trust_by_source: dict[str, float],
     now: datetime,
     half_life_days: float,
@@ -51,9 +60,10 @@ def pre_rank(
         if item.id in exclude_ids:
             continue
         rel = relevance(vectors[item.id], profile_vectors)
+        kw = keyword_norm(keyword_score(f"{item.title} {item.text}", terms)[0])
         fresh = freshness(item.published_at, now, half_life_days)
         trust = trust_by_source.get(item.source_id, DEFAULT_TRUST)
-        ranked.append(Ranked(item, pre_score(rel, fresh, trust), rel, fresh, trust))
+        ranked.append(Ranked(item, pre_score(rel, kw, fresh, trust), rel, kw, fresh, trust))
     ranked.sort(key=lambda r: (-r.score, r.item.id))
     return ranked[:limit]
 

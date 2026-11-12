@@ -42,6 +42,7 @@ def cmd_enrich(args: argparse.Namespace) -> int:
     """Pre-rank unscored items and score the top ones with claude -p."""
     from radar import enriched, llm
     from radar.embeddings import SentenceTransformerEmbedder, embed_items
+    from radar.prefilter import build_terms
     from radar.ranking import pre_rank
     from radar.store import Store
 
@@ -65,8 +66,9 @@ def cmd_enrich(args: argparse.Namespace) -> int:
 
     done = enriched.scored_ids(enriched.read_scores())
     limit = args.max_items if args.max_items is not None else settings.LLM_MAX_ITEMS
+    terms = build_terms(topics.keyword_groups)
     top = pre_rank(
-        items, vectors, profiles, trust, now, settings.FRESHNESS_HALF_LIFE_DAYS, done, limit
+        items, vectors, profiles, terms, trust, now, settings.FRESHNESS_HALF_LIFE_DAYS, done, limit
     )
     print(f"enrich: {len(items)} items, {len(done)} already scored, scoring {len(top)}")
     results = llm.score_items([r.item for r in top], topics.tags, settings.LLM_BATCH_SIZE, now)

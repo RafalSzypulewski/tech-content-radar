@@ -267,9 +267,10 @@ count only next to a non-anchored match).
 For Hacker News, also require `min_points`.
 
 **Pre-rank (local, before LLM):**
-`pre = 0.6·embedding_relevance + 0.25·freshness + 0.15·trust`, where
+`pre = 0.4·embedding_relevance + 0.3·keyword + 0.15·freshness + 0.15·trust`, where
 `embedding_relevance` = max cosine similarity to any topic profile, using
-`paraphrase-multilingual-MiniLM-L12-v2` (works for EN + PL). Take the top `LLM_MAX_ITEMS`
+`paraphrase-multilingual-MiniLM-L12-v2` (works for EN + PL), and `keyword` = the pre-filter
+keyword score of title/text, scaled `min(score / 15, 1)` and recomputed at rank time. Take the top `LLM_MAX_ITEMS`
 items not yet scored.
 
 **Freshness:** `0.5 ** (age_days / FRESHNESS_HALF_LIFE_DAYS)`.

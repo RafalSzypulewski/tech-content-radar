@@ -2,7 +2,9 @@ from datetime import timedelta
 
 import pytest
 
+from radar.config import KeywordGroup
 from radar.models import Enrichment
+from radar.prefilter import build_terms
 from radar.ranking import (
     cluster,
     engagement_norm,
@@ -10,6 +12,7 @@ from radar.ranking import (
     final_rank,
     final_score,
     freshness,
+    keyword_norm,
     pre_rank,
     pre_score,
     quality_mix,
@@ -28,10 +31,19 @@ def test_freshness(age_days, expected):
 
 
 def test_pre_score_weights():
-    assert pre_score(1, 0, 0) == pytest.approx(0.6)
-    assert pre_score(0, 1, 0) == pytest.approx(0.25)
-    assert pre_score(0, 0, 1) == pytest.approx(0.15)
-    assert pre_score(0.5, 0.5, 0.5) == pytest.approx(0.5)
+    assert pre_score(1, 0, 0, 0) == pytest.approx(0.4)
+    assert pre_score(0, 1, 0, 0) == pytest.approx(0.3)
+    assert pre_score(0, 0, 1, 0) == pytest.approx(0.15)
+    assert pre_score(0, 0, 0, 1) == pytest.approx(0.15)
+    assert pre_score(0.5, 0.5, 0.5, 0.5) == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize(("score", "expected"), [(0, 0.0), (6, 0.4), (15, 1.0), (40, 1.0)])
+def test_keyword_norm(score, expected):
+    assert keyword_norm(score) == pytest.approx(expected)
+
+
+TERMS = build_terms([KeywordGroup(id="t", weight=15, keywords=["playwright"])])
 
 
 def _aged(item_id: str, age_days: float, source_id: str = "example"):
@@ -45,6 +57,7 @@ def _rank(items, vectors, exclude=(), limit=10, trust=None):
         items,
         vectors,
         profile_vectors=[[1.0, 0.0]],
+        terms=TERMS,
         trust_by_source=trust or {},
         now=NOW,
         half_life_days=7,
@@ -61,8 +74,20 @@ def test_relevant_item_beats_fresh_irrelevant_item():
 
     assert [r.item.id for r in ranked] == ["old-on-topic", "fresh-off-topic"]
     top = ranked[0]
-    assert (top.relevance, top.freshness, top.trust) == pytest.approx((1.0, 0.25, 0.5))
-    assert top.score == pytest.approx(0.6 + 0.25 * 0.25 + 0.15 * 0.5)
+    assert (top.relevance, top.keyword, top.freshness, top.trust) == pytest.approx(
+        (1.0, 0.0, 0.25, 0.5)
+    )
+    assert top.score == pytest.approx(0.4 + 0.15 * 0.25 + 0.15 * 0.5)
+
+
+def test_keyword_match_lifts_item():
+    items = [_aged("plain", 0), _aged("keyword", 0).model_copy(update={"title": "Playwright tips"})]
+    vectors = {"plain": [1.0, 0.0], "keyword": [1.0, 0.0]}
+
+    ranked = _rank(items, vectors)
+
+    assert [(r.item.id, r.keyword) for r in ranked] == [("keyword", 1.0), ("plain", 0.0)]
+    assert ranked[0].score - ranked[1].score == pytest.approx(0.3)
 
 
 def test_trust_from_source_with_default_for_unknown():
