@@ -22,19 +22,26 @@ RAW_DIR = Path("data/raw")
 
 
 def cmd_collect(args: argparse.Namespace) -> int:
-    """Collect all sources and print the summary table."""
-    from radar.collectors import collect_all, format_summary, make_client
+    """Collect all sources, printing each source's row of the summary table as it finishes."""
+    from radar.collectors import HEADER, collect_all, format_row, make_client, stats_cells
     from radar.prefilter import build_terms
 
     settings = load_settings()
     sources = load_sources(Path("sources.yaml"))
     topics = load_topics(Path("topics.yaml"))
     terms = build_terms(topics.keyword_groups)
+    width = max(len(HEADER[0]), *(len(s.id) for s in sources))
+    print(format_row(HEADER, width), flush=True)
     with make_client() as client:
-        stats = collect_all(
-            sources, terms, RAW_DIR, datetime.now(UTC), client, settings.KEYWORD_MIN_SCORE
+        collect_all(
+            sources,
+            terms,
+            RAW_DIR,
+            datetime.now(UTC),
+            client,
+            settings.KEYWORD_MIN_SCORE,
+            on_source=lambda stat: print(format_row(stats_cells(stat), width), flush=True),
         )
-    print(format_summary(stats))
     return 0
 
 

@@ -1,7 +1,7 @@
 import httpx
 import respx
 
-from radar.collectors import collect_all, format_summary
+from radar.collectors import HEADER, collect_all, format_row, stats_cells
 from radar.config import KeywordGroup
 from radar.prefilter import build_terms
 from radar.rawstore import read_items
@@ -127,11 +127,29 @@ def test_no_file_written_when_nothing_kept(tmp_path):
     assert not (tmp_path / "raw").exists()
 
 
-def test_format_summary():
+@respx.mock
+def test_on_source_called_after_each_source_in_order(tmp_path, feed_bytes):
+    _mock_feeds(feed_bytes)
+    done = []
+
+    with httpx.Client() as client:
+        stats = collect_all(_sources(), TERMS, tmp_path, NOW, client, MIN, on_source=done.append)
+
+    assert [s.source_id for s in done] == ["atom", "broken", "pl"]
+    assert done == stats  # called with the finished stats, including the failed source
+
+
+def test_format_row():
     from radar.collectors import SourceStats
 
-    table = format_summary([SourceStats("atom", 2, 2, 1), SourceStats("x", error="boom")])
-    lines = table.splitlines()
+    lines = [
+        format_row(HEADER, 6),
+        format_row(stats_cells(SourceStats("atom", 2, 2, 1)), 6),
+        format_row(stats_cells(SourceStats("x", error="boom")), 6),
+    ]
     assert lines[0].split() == ["source", "fetched", "new", "kept", "errors"]
     assert lines[1].split() == ["atom", "2", "2", "1"]
     assert lines[2].split() == ["x", "0", "0", "0", "boom"]
+    # columns line up without knowing the other rows
+    assert lines[0].index("kept") == lines[1].index("1") == lines[2].rindex("0")
+    assert lines[0].index("errors") == lines[2].index("boom")
