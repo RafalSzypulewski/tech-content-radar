@@ -1,21 +1,133 @@
-keywords:            # pre-filter, case-insensitive, EN + PL
-  - testing
-  - testowanie
-  - testy
-  - test automation
-  - automatyzacja
-  - QA
-  - quality assurance
-  - playwright
-  - selenium
-  - cypress
-  - pytest
-  - flaky
-  - CI/CD
-  - AI
-  - sztuczna inteligencja
-  - LLM
-  - agent
+# Keyword score = sum of the weights of matched keywords (whole-word, case-insensitive).
+# A keyword in several groups counts once, at its highest
+# weight; where keywords overlap in the text the longest one wins ("OWASP Top 10" > "OWASP").
+# Groups with requires_anchor only count when a keyword from a group without it matched too.
+# Collect keeps an item when its score >= KEYWORD_MIN_SCORE (default 4).
+keyword_groups:
+  - id: core-testing
+    weight: 10
+    keywords: [Software Testing, QA, Quality Assurance, Quality Engineering, Test Engineering,
+      Test Automation, Automated Testing, Manual Testing, Testing Strategy, Test Design,
+      Test Cases, Test Scenarios, Test Plan, Test Execution, Test Coverage, Regression Testing,
+      Smoke Testing, Sanity Testing, Exploratory Testing, Acceptance Testing, Functional Testing,
+      Non-Functional Testing, Shift Left Testing, Risk-Based Testing, Continuous Testing,
+      Testing Best Practices, Software Quality, Defect Management, Bug Tracking, Test Reporting,
+      flaky, Flaky Tests, Flaky Test Detection, Test Debugging, Test Reliability,
+      Test Architecture, Automation Architecture, Maintainable Tests, Scalable Test Frameworks,
+      Test Code Refactoring, Test Code Quality, Programming for Testers]
+  - id: test-frameworks
+    weight: 10
+    keywords: [Selenium, Playwright, Cypress, WebdriverIO, Puppeteer, Appium, Robot Framework,
+      TestCafe, Nightwatch.js, Cucumber, SpecFlow, Serenity BDD, JUnit, TestNG, NUnit, xUnit,
+      pytest, Vitest, Mocha, Jasmine, RSpec, Karate, Pact, REST Assured, Postman, Newman,
+      Katalon, Tricentis Tosca, Ranorex, Squish, Detox, Maestro]
+  - id: ai-testing
+    weight: 9
+    keywords: [AI Testing, AI in Software Testing, AI-Powered Testing, Generative AI Testing,
+      LLM Testing, LLM Evaluation, AI Test Automation, Autonomous Testing, Self-Healing Tests,
+      AI Test Generation, Test Case Generation, AI QA, Machine Learning Testing, Model Testing,
+      Model Validation, Prompt Testing, Prompt Injection Testing, RAG Testing, Agent Testing,
+      Agentic Testing, AI Observability, Hallucination Testing, DeepEval, Ragas, LangSmith,
+      Promptfoo, Playwright MCP, Computer Use Testing]
+  - id: api-testing
+    weight: 9
+    keywords: [API Testing, REST API Testing, SOAP Testing, GraphQL Testing, Contract Testing,
+      API Automation, Integration Testing, Service Testing, Microservices Testing, API Validation,
+      HTTP Testing, API Mocking, API Stubbing, Schema Validation, OpenAPI, Swagger, WireMock,
+      MockServer, Supertest, gRPC Testing, Authentication Testing, Authorization Testing,
+      API Performance Testing]
+  - id: performance-testing
+    weight: 9
+    keywords: [Performance Testing, Load Testing, Stress Testing, Spike Testing, Soak Testing,
+      Scalability Testing, Capacity Testing, Bottleneck Analysis, JMeter, k6, Gatling, Locust,
+      Apache Bench, Artillery, NeoLoad, LoadRunner, Vegeta, wrk, Lighthouse Performance,
+      Performance Engineering]
+  - id: security-testing
+    weight: 9
+    keywords: [Security Testing, Application Security Testing, Penetration Testing,
+      Vulnerability Testing, OWASP, OWASP Top 10, SAST, DAST, IAST, RASP,
+      Software Composition Analysis, Dependency Scanning, SQL Injection, XSS, CSRF,
+      Security Automation, Burp Suite, ZAP, Snyk, Trivy, SonarQube, Checkmarx, Threat Modeling]
+  - id: test-infrastructure
+    weight: 8
+    keywords: [Test Pipelines, Container Testing, Test Environments, Test Infrastructure,
+      Parallel Testing, Distributed Testing, Test Orchestration, Test Execution Grid,
+      Selenium Grid, BrowserStack, Sauce Labs, LambdaTest]
+  - id: dev-practices
+    weight: 8
+    keywords: [TDD, Test-Driven Development, BDD, Behavior-Driven Development, ATDD,
+      Acceptance Test-Driven Development, Agile Testing, Scrum Testing, Extreme Programming,
+      Testing Pyramid, Testing Trophy, Unit Testing, Component Testing, End-to-End Testing,
+      E2E Testing, Test First, Red Green Refactor, Mocking, Stubbing, Test Doubles, Testability,
+      Testable Architecture]
+  - id: mobile-testing
+    weight: 8
+    keywords: [Mobile Testing, Mobile Test Automation, Android Testing, iOS Testing, Espresso,
+      XCUITest, XCTest, Flutter Testing, React Native Testing, Mobile UI Testing,
+      Mobile App Testing, Device Testing, Emulator Testing, Simulator Testing, Device Farm,
+      Mobile Performance Testing, Mobile Accessibility Testing, BrowserStack App Automate,
+      Firebase Test Lab]
+  - id: web-testing
+    weight: 8
+    keywords: [Web Testing, Web Application Testing, Browser Testing, Cross-Browser Testing,
+      UI Testing, GUI Testing, Visual Testing, Visual Regression Testing, Accessibility Testing,
+      WCAG, ARIA, Responsive Testing, CSS Testing, DOM Testing, Web Components Testing,
+      Browser Automation, Headless Browser, Percy, Applitools, Chromatic, axe-core, Lighthouse,
+      Storybook Testing]
+  - id: test-management
+    weight: 7
+    keywords: [Test Management, Test Management Tools, TestRail, Zephyr, Xray, qTest, PractiTest,
+      TestLink, Azure Test Plans, Quality Metrics, Test Metrics, Defect Tracking,
+      Test Documentation, Test Case Management, QA Dashboard, Traceability Matrix,
+      Requirements Traceability, Test Analytics]
+  - id: cloud-testing
+    weight: 7
+    keywords: [Cloud Testing, AWS Testing, Azure Testing, Google Cloud Testing, Serverless Testing,
+      Lambda Testing, Distributed Systems Testing, Event-Driven Testing, Kafka Testing,
+      Message Queue Testing, Database Testing, Data Pipeline Testing, Data Quality Testing,
+      ETL Testing, Big Data Testing, Snowflake Testing, Databricks Testing, Redis Testing,
+      MongoDB Testing, PostgreSQL Testing, MySQL Testing, Cloud-Native Testing, Chaos Engineering,
+      Resilience Testing, Fault Injection, Gremlin]
+  - id: testing-general   # bare words and Polish terms (matched exactly, no inflection)
+    weight: 6
+    keywords: [testing, test, tests, tested, eval, evals, testowanie, testy, automatyzacja]
+  - id: career
+    weight: 4
+    keywords: [QA Engineer, Software Test Engineer, SDET, Test Automation Engineer, QA Career,
+      Testing Interview, QA Interview Questions, SDET Interview, ISTQB, Testing Certification,
+      QA Roadmap, Automation Roadmap, Software Testing Tutorial, QA Tutorial, Testing Course,
+      Testing Workshop, Testing Conference, Testing Community]
+  - id: general-ai
+    weight: 3
+    keywords: [AI, LLM, LLMs, agent, agents, agentic, AI Agents, Prompt Engineering, Retrieval-Augmented Generation,
+      sztuczna inteligencja]
+  - id: ci-cd-devops
+    weight: 8
+    requires_anchor: true
+    keywords: [CI/CD, Continuous Integration, Continuous Delivery, Continuous Deployment, DevOps,
+      DevSecOps, Jenkins, GitHub Actions, GitLab CI, Azure DevOps, CircleCI, TeamCity, Bamboo,
+      Build Pipelines, Pipeline Automation, Docker, Kubernetes, Infrastructure as Code, Terraform,
+      Ansible]
+  - id: languages
+    weight: 6
+    requires_anchor: true
+    keywords: [Java, JavaScript, TypeScript, Python, C#, C++, Kotlin, Swift, Ruby, Golang, Rust,
+      PHP, Bash, SQL, Groovy, Object-Oriented Programming, Functional Programming,
+      Design Patterns, Clean Code, SOLID Principles, Refactoring]
+  - id: observability
+    weight: 6
+    requires_anchor: true
+    keywords: [Observability, Monitoring, Logging, Debugging, Distributed Tracing, OpenTelemetry,
+      Grafana, Prometheus, Datadog, New Relic, ELK Stack, Kibana, Sentry,
+      Application Performance Monitoring, Root Cause Analysis, Error Analysis, Failure Analysis,
+      Reliability Engineering, SRE, Site Reliability Engineering]
+  - id: architecture
+    weight: 5
+    requires_anchor: true
+    keywords: [Software Architecture, Clean Architecture, Hexagonal Architecture,
+      Microservices Architecture, Event-Driven Architecture, Modular Architecture, API Design,
+      System Design, Design Patterns, SOLID, Dependency Injection, Inversion of Control,
+      Domain-Driven Design, DDD, Framework Architecture]
 profiles:            # used for embedding similarity (relevance)
   - id: test-automation
     text: "Test automation frameworks, patterns and practices: Playwright, Selenium, Cypress, pytest, flaky tests, test architecture."

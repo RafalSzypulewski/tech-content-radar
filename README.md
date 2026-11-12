@@ -97,6 +97,7 @@ Defaults can be overridden in `.env` (or as environment variables):
 | `FRESHNESS_HALF_LIFE_DAYS` | 7 | Age at which the freshness score halves |
 | `CLUSTER_THRESHOLD` | 0.85 | Similarity above which items count as the same story |
 | `BACKLOG_ALERT` | 100 | Waiting items that trigger the reminder email |
+| `KEYWORD_MIN_SCORE` | 4 | Keyword score an item needs to be collected |
 
 ## Adding sources
 
@@ -121,8 +122,11 @@ Edit [sources.yaml](sources.yaml). Each source needs an `id`, `name`, `kind`, `t
 - **Substack / Medium:** their RSS feed (`https://<name>.substack.com/feed`,
   `https://medium.com/feed/@<user>`).
 
-Items from sources without `always_include` must match a keyword from [topics.yaml](topics.yaml)
-(whole word, case-insensitive). Run `python -m radar collect` once to check a new source: the summary
+Items from sources without `always_include` need a keyword score of at least `KEYWORD_MIN_SCORE`.
+The score is the sum of the weights of the `keyword_groups` in [topics.yaml](topics.yaml) that match
+the title or text (whole word, case-insensitive). Each keyword
+counts once, at its highest weight; overlapping matches keep the longest keyword; groups with
+`requires_anchor` (languages, CI/CD, …) only count next to a keyword from another group. Run `python -m radar collect` once to check a new source: the summary
 table shows fetched / new / kept / errors per source.
 
 ## Scheduling the local run

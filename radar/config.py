@@ -7,7 +7,7 @@ from typing import Literal
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 SourceKind = Literal["rss", "hackernews", "devto"]
 SourceType = Literal["blog", "video", "podcast", "release", "community"]
@@ -37,10 +37,19 @@ class Profile(BaseModel):
     text: str
 
 
+class KeywordGroup(BaseModel):
+    """Keywords sharing one weight. Anchored groups only count next to a non-anchored match."""
+
+    id: str
+    weight: int = Field(gt=0)
+    requires_anchor: bool = False
+    keywords: list[str] = Field(min_length=1)
+
+
 class Topics(BaseModel):
     """Contents of topics.yaml."""
 
-    keywords: list[str]
+    keyword_groups: list[KeywordGroup]
     profiles: list[Profile]
     tags: list[str]
 
@@ -67,6 +76,7 @@ class Settings:
     CLUSTER_THRESHOLD: float = 0.85
     BACKLOG_ALERT: int = 100
     FRESHNESS_HALF_LIFE_DAYS: float = 7.0
+    KEYWORD_MIN_SCORE: int = 4
 
 
 def load_settings(env_file: Path | None = Path(".env")) -> Settings:

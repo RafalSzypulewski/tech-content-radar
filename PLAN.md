@@ -179,24 +179,17 @@ Claude Code: verify each example URL returns a valid feed during milestone 1; re
 ### topics.yaml
 
 ```yaml
-keywords:            # pre-filter, case-insensitive, EN + PL
-  - testing
-  - testowanie
-  - testy
-  - test automation
-  - automatyzacja
-  - QA
-  - quality assurance
-  - playwright
-  - selenium
-  - cypress
-  - pytest
-  - flaky
-  - CI/CD
-  - AI
-  - sztuczna inteligencja
-  - LLM
-  - agent
+keyword_groups:      # pre-filter score, EN + PL (full list in topics.yaml)
+  - id: core-testing
+    weight: 10
+    keywords: [Software Testing, QA, Test Automation, Regression Testing, flaky, ...]
+  - id: general-ai
+    weight: 3
+    keywords: [AI, LLM, agent, sztuczna inteligencja, ...]
+  - id: languages
+    weight: 6
+    requires_anchor: true   # counts only next to a keyword from a group without this flag
+    keywords: [Java, TypeScript, Python, ...]
 profiles:            # used for embedding similarity (relevance)
   - id: test-automation
     text: "Test automation frameworks, patterns and practices: Playwright, Selenium, Cypress, pytest, flaky tests, test architecture."
@@ -212,7 +205,7 @@ tags: [test-automation, ai-in-testing, ai, llm, tools, ci-cd, career, release, t
 ### Settings (in `config.py`, overridable via `.env`)
 
 `LLM_MAX_ITEMS=60`, `LLM_BATCH_SIZE=20`, `DIGEST_SIZE=20`, `FRESHNESS_HALF_LIFE_DAYS=7`,
-`CLUSTER_THRESHOLD=0.85`, `BACKLOG_ALERT=100`.
+`CLUSTER_THRESHOLD=0.85`, `BACKLOG_ALERT=100`, `KEYWORD_MIN_SCORE=4`.
 
 ### .env.example
 
@@ -243,7 +236,7 @@ NOTIFY_TO=
 | `author` | str \| null | |
 | `text` | str | description / feed content / extracted text, max 4000 chars |
 | `engagement` | dict | e.g. `{"points": 120, "comments": 45}`, may be empty |
-| `matched_keywords` | list[str] | from pre-filter |
+| `matched_keywords` | list[str] | keywords that scored in the pre-filter, in text order |
 
 ### Enrichment — `data/enriched/scores.jsonl`
 
@@ -267,7 +260,10 @@ normalize YouTube links (`youtu.be/X`, `/shorts/X`, `watch?v=X&...`) to `https:/
 (keep an in-memory set built at start; fine at this scale).
 
 **Pre-filter (Actions):** keep an item if it is younger than `max_age_days` AND
-(`always_include` source OR at least one keyword matches title/text, word-boundary, case-insensitive).
+(`always_include` source OR keyword score ≥ `KEYWORD_MIN_SCORE`). The keyword score sums the weights
+of the weighted keyword groups in topics.yaml that match title/text (word-boundary, case-insensitive;
+each keyword once at its highest weight; longest overlapping match wins; `requires_anchor` groups
+count only next to a non-anchored match).
 For Hacker News, also require `min_points`.
 
 **Pre-rank (local, before LLM):**

@@ -2,10 +2,15 @@ import httpx
 import respx
 
 from radar.collectors import collect_all, format_summary
+from radar.config import KeywordGroup
+from radar.prefilter import build_terms
 from radar.rawstore import read_items
 from tests.conftest import FIXTURES, NOW, make_source
 
-KEYWORDS = ["testing", "flaky", "automatyzacja", "playwright"]
+TERMS = build_terms(
+    [KeywordGroup(id="t", weight=6, keywords=["testing", "flaky", "automatyzacja", "playwright"])]
+)
+MIN = 4
 
 
 def _sources():
@@ -32,7 +37,7 @@ def test_collect_all_writes_kept_items_and_survives_broken_source(tmp_path, feed
     raw = tmp_path / "raw"
 
     with httpx.Client() as client:
-        stats = collect_all(_sources(), KEYWORDS, raw, NOW, client)
+        stats = collect_all(_sources(), TERMS, raw, NOW, client, MIN)
 
     by_id = {s.source_id: s for s in stats}
     assert (by_id["atom"].fetched, by_id["atom"].new, by_id["atom"].kept) == (2, 2, 1)
@@ -70,7 +75,8 @@ def test_detected_language_overrides_source_lang(tmp_path):
     source = make_source(id="devto", kind="devto", type="community", url=None, tags=["testing"])
 
     with httpx.Client() as client:
-        collect_all([source], ["testy"], tmp_path, NOW, client)
+        terms = build_terms([KeywordGroup(id="t", weight=6, keywords=["testy"])])
+        collect_all([source], terms, tmp_path, NOW, client, MIN)
 
     [item] = read_items(tmp_path / "2026-10-29.jsonl")
     assert item.lang == "pl"  # the source says "en"
@@ -81,7 +87,7 @@ def test_unsupported_kind_is_reported(tmp_path):
     source = make_source(id="x")
     source.kind = "gopher"  # bypasses validation on purpose
 
-    [stat] = collect_all([source], KEYWORDS, tmp_path, NOW, httpx.Client())
+    [stat] = collect_all([source], TERMS, tmp_path, NOW, httpx.Client(), MIN)
 
     assert "not supported" in stat.error
 
@@ -92,8 +98,8 @@ def test_second_run_dedupes(tmp_path, feed_bytes):
     raw = tmp_path / "raw"
 
     with httpx.Client() as client:
-        collect_all(_sources(), KEYWORDS, raw, NOW, client)
-        stats = collect_all(_sources(), KEYWORDS, raw, NOW, client)
+        collect_all(_sources(), TERMS, raw, NOW, client, MIN)
+        stats = collect_all(_sources(), TERMS, raw, NOW, client, MIN)
 
     assert sum(s.new for s in stats if s.source_id == "atom") == 1  # only the dropped one again
     assert sum(s.kept for s in stats) == 0
@@ -111,13 +117,13 @@ def test_same_url_from_two_sources_is_kept_once(tmp_path, feed_bytes):
     ]
 
     with httpx.Client() as client:
-        collect_all(sources, KEYWORDS, tmp_path, NOW, client)
+        collect_all(sources, TERMS, tmp_path, NOW, client, MIN)
 
     assert len(read_items(tmp_path / "2026-10-29.jsonl")) == 1
 
 
 def test_no_file_written_when_nothing_kept(tmp_path):
-    collect_all([], KEYWORDS, tmp_path / "raw", NOW, httpx.Client())
+    collect_all([], TERMS, tmp_path / "raw", NOW, httpx.Client(), MIN)
     assert not (tmp_path / "raw").exists()
 
 

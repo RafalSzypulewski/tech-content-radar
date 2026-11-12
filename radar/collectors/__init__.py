@@ -12,7 +12,7 @@ from radar.config import Source
 from radar.extract import extract_text, needs_extraction
 from radar.language import detect_lang
 from radar.models import RawItem
-from radar.prefilter import keep, match_keywords
+from radar.prefilter import Term, keep, keyword_score
 
 USER_AGENT = "tech-content-radar/0.1 (+https://github.com/RafalSzypulewski/tech-content-radar)"
 COLLECTORS = {"rss": rss.collect, "hackernews": hackernews.collect, "devto": devto.collect}
@@ -31,10 +31,11 @@ class SourceStats:
 
 def collect_all(
     sources: list[Source],
-    keywords: list[str],
+    terms: list[Term],
     raw_dir: Path,
     now: datetime,
     client: httpx.Client,
+    min_score: int,
 ) -> list[SourceStats]:
     """Collect every source; one failing source never stops the run."""
     seen = rawstore.known_ids(raw_dir, now.date())
@@ -58,10 +59,9 @@ def collect_all(
                 continue
             seen.add(item.id)
             stat.new += 1
-            item = item.model_copy(
-                update={"matched_keywords": match_keywords(f"{item.title} {item.text}", keywords)}
-            )
-            if keep(item, source, now):
+            score, matched = keyword_score(f"{item.title} {item.text}", terms)
+            item = item.model_copy(update={"matched_keywords": matched})
+            if keep(item, source, now, score, min_score):
                 stat.kept += 1
                 kept_items.append(add_text_and_lang(client, item, source))
     if kept_items:
