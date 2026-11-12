@@ -24,11 +24,16 @@ RAW_DIR = Path("data/raw")
 def cmd_collect(args: argparse.Namespace) -> int:
     """Collect all sources and print the summary table."""
     from radar.collectors import collect_all, format_summary, make_client
+    from radar.prefilter import build_terms
 
+    settings = load_settings()
     sources = load_sources(Path("sources.yaml"))
     topics = load_topics(Path("topics.yaml"))
+    terms = build_terms(topics.keyword_groups)
     with make_client() as client:
-        stats = collect_all(sources, topics.keywords, RAW_DIR, datetime.now(UTC), client)
+        stats = collect_all(
+            sources, terms, RAW_DIR, datetime.now(UTC), client, settings.KEYWORD_MIN_SCORE
+        )
     print(format_summary(stats))
     return 0
 
