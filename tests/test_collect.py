@@ -72,6 +72,7 @@ def test_detected_language_overrides_source_lang(tmp_path):
             }
         ],
     )
+    respx.get("https://dev.to/ktos/testy-1").respond(404)
     source = make_source(id="devto", kind="devto", type="community", url=None, tags=["testing"])
 
     with httpx.Client() as client:
@@ -80,7 +81,7 @@ def test_detected_language_overrides_source_lang(tmp_path):
 
     [item] = read_items(tmp_path / "2026-10-29.jsonl")
     assert item.lang == "pl"  # the source says "en"
-    assert item.text == "Jak pisać czytelne testy jednostkowe w pytest."  # community: no extraction
+    assert item.text == "Jak pisać czytelne testy jednostkowe w pytest."  # no page: keep feed text
 
 
 def test_unsupported_kind_is_reported(tmp_path):
