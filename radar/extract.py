@@ -10,8 +10,8 @@ TIMEOUT_SECONDS = 10
 
 
 def needs_extraction(item_type: str, text: str) -> bool:
-    """Only blog items whose feed text is shorter than 500 chars."""
-    return item_type == "blog" and len(text) < MIN_FEED_TEXT_CHARS
+    """Blog and community items whose feed text is shorter than 500 chars."""
+    return item_type in ("blog", "community") and len(text) < MIN_FEED_TEXT_CHARS
 
 
 def extract_text(client: httpx.Client, url: str) -> str | None:

@@ -15,7 +15,8 @@ URL = "https://example.com/post"
         ("blog", "x" * 499, True),
         ("blog", "x" * 500, False),
         ("video", "", False),
-        ("community", "", False),
+        ("community", "", True),
+        ("community", "x" * 500, False),
     ],
 )
 def test_needs_extraction(item_type, text, expected):
