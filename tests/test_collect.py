@@ -81,7 +81,7 @@ def test_detected_language_overrides_source_lang(tmp_path):
 
     [item] = read_items(tmp_path / "2026-10-29.jsonl")
     assert item.lang == "pl"  # the source says "en"
-    assert item.text == "Jak pisać czytelne testy jednostkowe w pytest."  # extraction failed: keep feed text
+    assert item.text == "Jak pisać czytelne testy jednostkowe w pytest."  # no page: keep feed text
 
 
 def test_unsupported_kind_is_reported(tmp_path):
