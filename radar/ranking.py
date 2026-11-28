@@ -10,6 +10,8 @@ from radar.prefilter import Term, keyword_score
 
 DEFAULT_TRUST = 0.5  # for items whose source is no longer in sources.yaml
 ENGAGEMENT_CAP = 1000  # points + comments (or reactions + comments) that count as "max"
+FEEDBACK_WEIGHT = 0.3
+FEEDBACK_TOP_K = 5  # feedback items averaged per side in the boost
 NOVELTY_BEST = 1.0
 NOVELTY_RELATED = 0.3
 KEYWORD_CAP = 15  # keyword score that counts as "max" in pre-rank
@@ -123,11 +125,21 @@ def feedback_boost(
     liked_vectors: list[list[float]],
     skipped_vectors: list[list[float]],
 ) -> float:
-    """+0.1·max_sim(kept/written) − 0.1·max_sim(skipped); 0 without feedback.
+    """+0.3·top5_sim(kept/written) − 0.3·top5_sim(skipped); 0 without feedback.
 
-    Similarities are clamped to 0..1 so dissimilar feedback never flips the sign.
+    top5_sim is the mean similarity to the FEEDBACK_TOP_K most similar items (fewer if
+    there are fewer). Similarities are clamped to 0..1 so dissimilar feedback never flips
+    the sign.
     """
-    return 0.1 * relevance(vector, liked_vectors) - 0.1 * relevance(vector, skipped_vectors)
+    return FEEDBACK_WEIGHT * top_k_similarity(vector, liked_vectors) - FEEDBACK_WEIGHT * (
+        top_k_similarity(vector, skipped_vectors)
+    )
+
+
+def top_k_similarity(vector: list[float], others: list[list[float]]) -> float:
+    """Mean of the FEEDBACK_TOP_K highest similarities (clamped to 0..1); 0.0 without others."""
+    sims = sorted((max(0.0, cosine(vector, o)) for o in others), reverse=True)[:FEEDBACK_TOP_K]
+    return sum(sims) / len(sims) if sims else 0.0
 
 
 def final_rank(

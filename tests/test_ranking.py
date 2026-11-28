@@ -178,10 +178,21 @@ def test_final_rank_uses_trust_and_engagement():
 
 def test_feedback_boost():
     assert feedback_boost([1.0, 0.0], [], []) == 0.0
-    assert feedback_boost([1.0, 0.0], [[1.0, 0.0]], []) == pytest.approx(0.1)
-    assert feedback_boost([1.0, 0.0], [], [[1.0, 0.0]]) == pytest.approx(-0.1)
+    assert feedback_boost([1.0, 0.0], [[1.0, 0.0]], []) == pytest.approx(0.3)
+    assert feedback_boost([1.0, 0.0], [], [[1.0, 0.0]]) == pytest.approx(-0.3)
     assert feedback_boost([1.0, 0.0], [[0.0, 1.0]], [[-1.0, 0.0]]) == pytest.approx(0.0)
-    assert feedback_boost([1.0, 0.0], [[1.0, 0.0]], [[0.6, 0.8]]) == pytest.approx(0.1 - 0.06)
+    assert feedback_boost([1.0, 0.0], [[1.0, 0.0]], [[0.6, 0.8]]) == pytest.approx(0.3 - 0.18)
+
+
+def test_feedback_boost_averages_top_k():
+    # mean of the 5 closest liked (1.0 x5 -> 1.0); the 6th (0.0) is ignored
+    liked = [[1.0, 0.0]] * 5 + [[0.0, 1.0]]
+    assert feedback_boost([1.0, 0.0], liked, []) == pytest.approx(0.3)
+    # one close lookalike among unrelated skips no longer dominates: mean(1, 0, 0, 0, 0) = 0.2
+    skipped = [[1.0, 0.0]] + [[0.0, 1.0]] * 4
+    assert feedback_boost([1.0, 0.0], [], skipped) == pytest.approx(-0.3 * 0.2)
+    # fewer than 5 items: mean over what there is
+    assert feedback_boost([1.0, 0.0], [[1.0, 0.0], [0.6, 0.8]], []) == pytest.approx(0.3 * 0.8)
 
 
 def test_boost_changes_ranking_as_expected():
@@ -194,7 +205,7 @@ def test_boost_changes_ranking_as_expected():
         return [e.item.id for e in entries]
 
     assert order([], []) == ["ai", "testing"]  # 0.045 ahead on relevance
-    # kept a testing post, skipped an AI post -> testing gets +0.1, ai -0.1
+    # kept a testing post, skipped an AI post -> testing gets +0.3, ai -0.3
     assert order([[0.0, 1.0]], [[1.0, 0.0]]) == ["testing", "ai"]
     # liking something unrelated to both changes nothing
     assert order([[-1.0, -1.0]], []) == ["ai", "testing"]
