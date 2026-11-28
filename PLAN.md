@@ -279,7 +279,7 @@ items not yet scored.
 `final = 0.45·(relevance/10) + 0.25·quality_mix + 0.15·freshness + 0.15·novelty + feedback_boost`
 - `quality_mix = 0.5·(quality/10) + 0.3·trust + 0.2·engagement_norm` (engagement normalized 0..1, log-scaled; 0 when missing)
 - **Novelty:** cluster items whose embeddings have cosine ≥ `CLUSTER_THRESHOLD`; the best item in a cluster gets 1.0, others 0.3. The digest shows related items under the best one.
-- **Feedback boost:** `+0.1 · max_sim(kept/written items) − 0.1 · max_sim(skipped items)` using embeddings; 0 when there is no feedback yet.
+- **Feedback boost:** `+0.3 · top5_sim(kept/written items) − 0.3 · top5_sim(skipped items)` using embeddings, where `top5_sim` is the mean similarity to the 5 most similar items on that side; 0 when there is no feedback yet.
 
 ---
 
